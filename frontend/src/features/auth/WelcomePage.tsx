@@ -115,6 +115,11 @@ export function WelcomePage() {
         <button className="btn btn-primary btn-block" type="submit" disabled={!name.trim()}>
           {editing ? 'Guardar' : '¡Empezar la aventura!'}
         </button>
+        {!editing && (
+          <button type="button" className="btn btn-secondary btn-block" onClick={() => navigate('/entrar')}>
+            Ya tengo usuario
+          </button>
+        )}
         {editing && (
           <button type="button" className="btn btn-secondary btn-block" onClick={() => navigate('/perfil')}>
             Cancelar

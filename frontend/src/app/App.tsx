@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { TempleArt } from '../components/TempleArt';
+import { LoginPage } from '../features/auth/LoginPage';
 import { WelcomePage } from '../features/auth/WelcomePage';
 import { LessonPage } from '../features/exercises/LessonPage';
 import { ProfilePage } from '../features/progress/ProfilePage';
@@ -30,6 +31,7 @@ function AppRoutes() {
   if (!profile) {
     return (
       <Routes>
+        <Route path="entrar" element={<LoginPage />} />
         <Route path="*" element={<WelcomePage />} />
       </Routes>
     );
@@ -43,6 +45,7 @@ function AppRoutes() {
         <Route path="progreso" element={<ProgressPage />} />
       </Route>
       <Route path="bienvenida" element={<WelcomePage />} />
+      <Route path="entrar" element={<LoginPage />} />
       <Route path="leccion/:lessonId" element={<LessonPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

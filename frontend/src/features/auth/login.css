@@ -1,0 +1,14 @@
+/* Pantalla de entrada con usuario y contraseña; reutiliza el estilo de la bienvenida. */
+.login-password { display: flex; gap: 8px; align-items: center; }
+.login-password input { flex: 1; min-width: 0; }
+.login-password .btn { flex: none; }
+
+.login-error {
+  margin: 0;
+  padding: 10px 14px;
+  border: var(--line) solid var(--error);
+  border-radius: 14px;
+  background: var(--error-fondo);
+  color: var(--error);
+  font-weight: 700;
+}
