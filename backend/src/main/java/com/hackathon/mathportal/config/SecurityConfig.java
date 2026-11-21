@@ -29,7 +29,7 @@ public class SecurityConfig {
             new JwtClaimValidator<java.util.List<String>>("aud", audiences ->
                 audiences != null && audiences.containsAll(config.getAudiences())),
             new JwtClaimValidator<String>("sub", subject ->
-                subject != null && !subject.isBlank() && subject.length() <= 255),
+                isUuid(subject)),
             new JwtClaimValidator<java.time.Instant>("exp", Objects::nonNull)));
         return decoder;
     }
@@ -44,5 +44,10 @@ public class SecurityConfig {
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
             .build();
+    }
+    private static boolean isUuid(String value) {
+        if (value == null) return false;
+        try { return java.util.UUID.fromString(value).toString().equalsIgnoreCase(value); }
+        catch (IllegalArgumentException ex) { return false; }
     }
 }

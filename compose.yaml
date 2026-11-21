@@ -5,7 +5,8 @@ services:
       SUPABASE_DB_URL: ${SUPABASE_DB_URL:?Completar SUPABASE_DB_URL en .env}
       SUPABASE_DB_USERNAME: ${SUPABASE_DB_USERNAME:?Completar SUPABASE_DB_USERNAME en .env}
       SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD:?Completar SUPABASE_DB_PASSWORD en .env}
-      SUPABASE_URL: ${SUPABASE_URL:?Completar SUPABASE_URL en .env para validar los JWT}
+      SUPABASE_URL: ${SUPABASE_URL:-http://localhost:54321}
+      SUPABASE_AUTH_ISSUER: ${SUPABASE_AUTH_ISSUER:-${SUPABASE_URL:-http://localhost:54321}/auth/v1}
     expose:
       - "8081"
   frontend:

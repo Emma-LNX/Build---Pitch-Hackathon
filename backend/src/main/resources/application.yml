@@ -13,8 +13,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SUPABASE_URL:http://localhost:54321}/auth/v1
-          jwk-set-uri: ${SUPABASE_URL:http://localhost:54321}/auth/v1/.well-known/jwks.json
+          issuer-uri: ${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}
+          jwk-set-uri: ${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}/.well-known/jwks.json
           audiences: authenticated
           jws-algorithms: ES256,RS256
   datasource:

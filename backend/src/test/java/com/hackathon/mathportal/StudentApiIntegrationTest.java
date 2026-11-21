@@ -373,7 +373,7 @@ class StudentApiIntegrationTest {
 
     private String token(String issuer, String audience, boolean expired, RSAKey key) throws Exception {
         var now = Instant.now();
-        var claims = new JWTClaimsSet.Builder().subject("emily").issuer(issuer).audience(audience)
+        var claims = new JWTClaimsSet.Builder().subject("00000000-0000-0000-0000-000000000123").issuer(issuer).audience(audience)
             .issueTime(Date.from(now.minusSeconds(900))).expirationTime(Date.from(now.plusSeconds(expired ? -600 : 600))).build();
         return signedToken(claims, key);
     }

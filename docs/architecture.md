@@ -1,11 +1,17 @@
-# Arquitectura inicial
+# Arquitectura
 
-El navegador consume `/api` en Spring Boot; Java conecta por JDBC a Supabase PostgreSQL. Vite durante desarrollo y Nginx en Docker mantienen el mismo origen para la API. No se requiere CORS abierto.
+El navegador consume `/api` en Spring Boot; Java conecta por JDBC a Supabase PostgreSQL. Vite durante desarrollo y Nginx en Docker mantienen el mismo origen para la API.
 
-Frontend organizado por funcionalidades. Backend organizado por módulos, cada uno con capas controller, service, repository, entity y dto. Los módulos de alumnos, contenido y progreso implementan el MVP descrito en [el contexto de alumnos](contexto-alumnos.md) y [la guía del backend](../backend/README.md).
+Frontend organizado por funcionalidades. Backend organizado por módulos. La primera funcionalidad implementada es el [RBAC por colegio y curso](rbac.md): autenticación con JWT de Supabase Auth y autorización por membresías verificadas en cada petición.
 
-Flyway será el único propietario de las migraciones, en `backend/src/main/resources/db/migration`. Se reserva el esquema `math_portal` para no mezclar las tablas con los esquemas administrados por Supabase. Hibernate y Flyway están configurados para usar ese esquema. JPA valida el esquema; no crea tablas automáticamente.
+Se usa `JdbcTemplate` en los repositorios de membresías y temas para expresar explícitamente los filtros por usuario, colegio y curso. JPA sigue disponible para nuevos módulos; no genera tablas.
 
-Spring Security valida los JWT de Supabase Auth mediante su JWKS, emisor y audiencia. Los servicios privados resuelven al alumno desde el `sub` autenticado y comprueban que esté activo. El acceso JDBC con usuario PostgreSQL no hereda automáticamente las políticas por usuario de Supabase Auth; la autorización se aplica en Java. Solo la comprobación de salud es pública.
+Flyway es el propietario de las migraciones en `backend/src/main/resources/db/migration`. Hibernate y Flyway usan el esquema `math_portal`. V1 define colegios, cursos, membresías y temas; V2 restringe el acceso directo desde Supabase y activa RLS sin políticas públicas. La conexión JDBC de propietario omite RLS: la API aplica la autorización en sus consultas.
 
-No se incluye un SDK de Supabase en el navegador: agregarlo solo si se decide usar Auth o Storage directamente desde el frontend. Nunca publicar contraseñas JDBC ni claves service-role.
+Solo la salud del backend es pública. El director confirmado puede crear su propio colegio, administrar sus miembros, cursos y asignaciones y consultar estadísticas. V3 define los perfiles y la propiedad de colegios; V4 protege las tablas nuevas. Hay tres roles: DIRECTOR, PROFESOR y ALUMNO.
+
+El frontend lo desarrolla otro integrante del equipo. La integración debe registrar usuarios con Supabase Auth y enviar sus access tokens a la API. La práctica de ejercicios y la sincronización offline quedan pendientes. El esquema privado no se consulta directamente desde el navegador. Nunca publicar contraseñas JDBC ni claves service-role.
+
+## Backend de alumnos integrado
+
+Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver [guía del backend](../backend/README.md) y [contexto de alumnos](contexto-alumnos.md). Los temas de práctica globales (tabla temas) y los temas publicados por profesores dentro de cursos (tabla topics) conservan ámbitos separados; todavía no existe una vinculación entre ambos. La sincronización de partidas usa POST /api/attempts con UUID idempotente. Las migraciones de alumnos son V1–V2 y las escolares V3–V6. El emisor se puede configurar con SUPABASE_AUTH_ISSUER o derivar de SUPABASE_URL.
