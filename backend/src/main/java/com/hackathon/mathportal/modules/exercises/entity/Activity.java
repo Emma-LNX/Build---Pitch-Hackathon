@@ -44,4 +44,3 @@ public class Activity {
     public void setActive(boolean active) { this.active = active; }
 
 }
-

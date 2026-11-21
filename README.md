@@ -1,6 +1,6 @@
 # Portal de repaso de matemáticas
 
-Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. La experiencia de práctica offline está pendiente.
+Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. Incluye [aulas por escuela, grado, sección y ciclo](docs/classrooms.md), con profesor y matrícula de estudiantes, y [estadísticas del profesor](docs/teachers.md) basadas en partidas. La experiencia de práctica offline está pendiente.
 
 ```text
 .
@@ -28,7 +28,7 @@ Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC
 │       │   ├── java/com/hackathon/mathportal/
 │       │   │   ├── config/
 │       │   │   ├── common/exception/
-│       │   │   └── modules/{auth,directors,schools,courses,topics,exercises,progress}/
+│       │   │   └── modules/{auth,directors,schools,classrooms,teachers,students,courses,topics,exercises,progress,Estadistica}/
 │       │   └── resources/db/migration/
 │       └── test/java/com/hackathon/mathportal/
 ├── docs/                       # Arquitectura y decisiones offline
@@ -86,4 +86,4 @@ Fuentes: [Spring Boot / Java](https://docs.spring.io/spring-boot/3.5/system-requ
 
 ## Backend de alumnos integrado
 
-Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver [guía del backend](backend/README.md) y [contexto de alumnos](docs/contexto-alumnos.md). Los temas de práctica globales (tabla temas) y los temas publicados por profesores dentro de cursos (tabla topics) conservan ámbitos separados; todavía no existe una vinculación entre ambos. La sincronización de partidas usa POST /api/attempts con UUID idempotente. Las migraciones de alumnos son V1–V2 y las escolares V3–V6. El emisor se puede configurar con SUPABASE_AUTH_ISSUER o derivar de SUPABASE_URL.
+Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver [guía del backend](backend/README.md) y [contexto de alumnos](docs/contexto-alumnos.md). Los temas de práctica globales (tabla temas) y los temas publicados por profesores dentro de cursos (tabla topics) conservan ámbitos separados; todavía no existe una vinculación entre ambos. La sincronización de partidas usa POST /api/attempts con UUID idempotente. Las migraciones de alumnos son V1–V2, colegios/directores V3–V6, estadísticas V7 y aulas/profesores V8–V12. El emisor se puede configurar con SUPABASE_AUTH_ISSUER o derivar de SUPABASE_URL.

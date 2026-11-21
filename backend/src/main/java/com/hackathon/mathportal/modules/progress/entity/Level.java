@@ -32,4 +32,3 @@ public class Level {
     public void setMinimumXp(long minimumXp) { this.minimumXp = minimumXp; }
 
 }
-

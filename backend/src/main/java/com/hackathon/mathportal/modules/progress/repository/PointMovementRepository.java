@@ -13,4 +13,3 @@ public interface PointMovementRepository extends JpaRepository<PointMovement, UU
     @Query("select coalesce(sum(p.amount), 0) from PointMovement p where p.studentId = :studentId")
     long totalXp(@Param("studentId") UUID studentId);
 }
-

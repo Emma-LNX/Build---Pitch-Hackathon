@@ -9,4 +9,3 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AttemptRepository extends JpaRepository<Attempt, UUID> {
     Page<Attempt> findByStudentId(UUID studentId, Pageable pageable);
 }
-

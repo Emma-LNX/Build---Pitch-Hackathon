@@ -26,4 +26,3 @@ public class LearningDay {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
 }
-

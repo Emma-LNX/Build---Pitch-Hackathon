@@ -62,4 +62,3 @@ public class ActivityVersion {
     public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
 
 }
-

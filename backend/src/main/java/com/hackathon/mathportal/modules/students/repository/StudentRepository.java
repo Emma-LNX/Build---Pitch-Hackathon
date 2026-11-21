@@ -16,4 +16,3 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     @Query("select s from Student s where s.authSubject = :subject")
     Optional<Student> findForUpdate(@Param("subject") String subject);
 }
-

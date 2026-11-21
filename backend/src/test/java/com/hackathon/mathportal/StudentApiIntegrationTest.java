@@ -65,7 +65,7 @@ class StudentApiIntegrationTest {
             properties.add("spring.datasource.username", () -> System.getenv().getOrDefault("TEST_DB_USERNAME", "postgres"));
             properties.add("spring.datasource.password", () -> System.getenv().getOrDefault("TEST_DB_PASSWORD", "postgres"));
         } else {
-            postgres = new PostgreSQLContainer<>("postgres:17-alpine");
+            postgres = new PostgreSQLContainer<>("postgres:17-alpine").withInitScript("test-postgres-init.sql");
             postgres.start();
             properties.add("spring.datasource.url", postgres::getJdbcUrl);
             properties.add("spring.datasource.username", postgres::getUsername);

@@ -9,4 +9,3 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ActivityProgressRepository extends JpaRepository<ActivityProgress, ActivityProgressId> {
     List<ActivityProgress> findByIdStudentId(UUID studentId);
 }
-

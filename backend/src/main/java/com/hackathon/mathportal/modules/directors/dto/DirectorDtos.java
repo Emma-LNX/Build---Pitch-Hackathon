@@ -14,5 +14,5 @@ public final class DirectorDtos {
     public record NameRequest(@NotBlank @Size(max = 160) String name) {}
     public record AddMember(@NotBlank @Email @Size(max = 254) String email, @NotNull SchoolRole role) {}
     public record Member(UUID userId, String email, SchoolRole role) {}
-    public record Statistics(int professors, int students, int courses, int topics) {}
+    public record Statistics(int professors, int students, int courses, int topics, int classrooms) {}
 }

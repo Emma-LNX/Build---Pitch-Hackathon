@@ -119,3 +119,119 @@ mvn verify
 La suite aplica migraciones, vacía `math_portal.alumnos` y sus tablas dependientes antes de cada prueba y agrega contenido de prueba. **Usar exclusivamente una base desechable**: nunca indicar la base compartida de Supabase. Las pruebas no leen `.env` y sustituyen las credenciales y el emisor JWT de la aplicación por configuración local de prueba.
 
 Validación realizada: `mvn verify` con PostgreSQL 17.5 temporal; 24 pruebas aprobadas, ninguna omitida. Se generó el JAR del backend. No se ejecutaron migraciones sobre la base compartida de Supabase.
+
+
+## Estadisticas del backend
+
+El modulo usa Java 21, el DataSource existente y el esquema `math_portal`. El controlador declara
+`/estadisticas`; `application.yml` aporta `/api` una sola vez. Todas estas rutas requieren
+`Authorization: Bearer <access_token de Supabase>`.
+
+| Metodo | Ruta completa | Resultado |
+| --- | --- | --- |
+| GET | `/api/estadisticas/me` | Nivel y avance de XP, racha de practica, totales, aciertos por tema y promedios por desafio. |
+| GET | `/api/estadisticas/me/desafios` | Cada partida terminada, porcentaje de aciertos, aprobacion y tiempos individuales. |
+| GET | `/api/estadisticas/me/historial/niveles` | Evolucion de XP y nivel en cada recompensa. |
+| GET | `/api/estadisticas/me/historial/errores` | Errores y preguntas omitidas por partida y version, sin revelar la respuesta correcta. |
+| PUT | `/api/estadisticas/me/partidas/{partidaId}/tiempo` | Registra tiempos de una partida propia ya enviada a `/api/attempts`. |
+| GET | `/api/estadisticas/profesor/alumnos` | Lista paginada de alumnos activos de aulas asignadas al profesor. |
+| GET | `/api/estadisticas/profesor/alumnos/{alumnoId}` | Resumen del alumno asignado. |
+| GET | `/api/estadisticas/profesor/alumnos/{alumnoId}/desafios` | Partidas y tiempos individuales del alumno. |
+| GET | `/api/estadisticas/profesor/alumnos/{alumnoId}/historial/niveles` | Historial de XP y niveles del alumno. |
+| GET | `/api/estadisticas/profesor/alumnos/{alumnoId}/historial/errores` | Historial de errores del alumno. |
+
+Las listas aceptan `?page=0&size=20` (size de 1 a 100). Los campos de detalle del modulo
+usan nombres en espanol; las filas SQL usan `snake_case` y los contenedores/DTO usan `camelCase`.
+`alumnoId` es el ID del perfil de `alumnos`, que puede diferir del subject de Auth. Se obtiene
+de la lista del profesor; el ID del propietario nunca se acepta en el cuerpo de una escritura.
+Se verifica en BD que el profesor sea responsable del aula y que el alumno esté matriculado en ella.
+Compartir solo colegio o curso no basta. Sin membresía de profesor: 403. Alumno ajeno, inactivo o
+partida ajena: 404. La revocación de la matrícula o la reasignación del aula tiene efecto en la siguiente consulta.
+
+Una partida terminada es cualquier intento aceptado, aprobado o fallido. Un desafio completado
+es una actividad distinta con al menos una aprobacion. Los aciertos por tema se ponderan por
+cantidad de preguntas de todos los intentos; las omitidas cuentan como errores.
+La racha de practica incluye intentos fallidos y usa la fecha de aprendizaje registrada por el
+servidor y la zona horaria del alumno. Puede diferir de la racha de aprendizaje previa, que solo
+considera dias con aprobaciones.
+
+### Probar las rutas en PowerShell
+
+Arrancar el backend con las variables de conexion ya configuradas en el proceso:
+`mvn spring-boot:run`. Flyway aplicara V7 al iniciar. Este trabajo no ejecuto migraciones en
+la base compartida de Supabase ni leyo archivos `.env`.
+
+```powershell
+$base = 'http://localhost:8081/api/estadisticas'
+$alumnoHeaders = @{ Authorization = 'Bearer <TOKEN_ALUMNO>' }
+$profesorHeaders = @{ Authorization = 'Bearer <TOKEN_PROFESOR>' }
+
+Invoke-RestMethod "$base/me" -Headers $alumnoHeaders
+Invoke-RestMethod "$base/me/desafios?page=0&size=20" -Headers $alumnoHeaders
+Invoke-RestMethod "$base/me/historial/niveles" -Headers $alumnoHeaders
+Invoke-RestMethod "$base/me/historial/errores" -Headers $alumnoHeaders
+Invoke-RestMethod "$base/profesor/alumnos" -Headers $profesorHeaders
+Invoke-RestMethod "$base/profesor/alumnos/<ALUMNO_ID>" -Headers $profesorHeaders
+```
+
+Para registrar tiempo, enviar primero la partida mediante `POST /api/attempts`, conservar su UUID
+y luego enviar este cuerpo al PUT de tiempo con el token del mismo alumno:
+
+```json
+{
+  "iniciadaEn": "2026-11-21T17:00:00Z",
+  "finalizadaEn": "2026-11-21T17:02:00Z",
+  "tiempoActivoMs": 75000
+}
+```
+
+```powershell
+$tiempo = @{
+  iniciadaEn = '2026-11-21T17:00:00Z'
+  finalizadaEn = '2026-11-21T17:02:00Z'
+  tiempoActivoMs = 75000
+} | ConvertTo-Json
+
+Invoke-RestMethod "$base/me/partidas/<PARTIDA_ID>/tiempo" -Method Put `
+  -Headers $alumnoHeaders -ContentType 'application/json' -Body $tiempo
+```
+
+Adaptar las fechas al intento real: inicio <= fin <= recepcion de la partida y reloj del servidor.
+El ejemplo representa 120000 ms transcurridos y 75000 ms activos. Todas las duraciones usan
+milisegundos y las fechas se normalizan a esa precision.
+
+El cliente mide solo los intervalos de interaccion con la pantalla visible y sin pausa para
+`tiempoActivoMs`; `finalizadaEn - iniciadaEn` incluye pausas. Son mediciones declaradas por
+el cliente (`fuente: CLIENTE`), sujetas a validacion de consistencia, no una medicion verificada
+de atencion. Este cambio no modifica el frontend: el consumidor debe enviar estos tiempos.
+El tiempo activo debe estar entre cero y el transcurrido. Un intervalo invalido devuelve 400.
+Repetir datos identicos devuelve 200; intentar reemplazarlos devuelve 409.
+Las partidas anteriores y las nuevas sin telemetria muestran tiempos `null`.
+Los promedios y las sumas solo consideran partidas con medicion; `partidas_con_tiempo` permite
+conocer la cobertura. Sin mediciones, tiempos y promedios permanecen `null`, nunca cero inventado.
+
+### Persistencia y pruebas de estadisticas
+
+V7 agrega `estadistica_respuestas`, `estadistica_niveles` y `estadistica_tiempos`.
+Los triggers de partidas y movimientos de XP capturan historial dentro de la misma transaccion
+del flujo existente. No hay rutas que permitan reescribir resultados o historial.
+Los reintentos originales no disparan inserciones adicionales. Las tablas nuevas tienen RLS
+sin politicas de cliente y permisos revocados para PUBLIC y roles Supabase anon/authenticated.
+
+La migracion reconstruye preguntas y errores desde las respuestas y versiones inmutables existentes.
+Reconstruye el nivel de cada recompensa historica con XP acumulado y los umbrales actuales:
+esas filas tienen `reconstruido: true`. Las nuevas capturas conservan numero y nombre del nivel en
+ese momento y tienen `reconstruido: false`. El historial empieza con la primera recompensa;
+un alumno sin recompensas tiene historial vacio y nivel inicial en el resumen. No se puede
+recuperar cambios antiguos de umbrales no registrados ni tiempos que nunca se midieron.
+
+`mvn verify` incluye pruebas de autorizacion con H2 y de validacion de tiempos.
+`EstadisticasPostgresIntegrationTest` verifica V7, preguntas omitidas, porcentajes, promedios,
+historial, aislamiento entre alumnos/profesores, idempotencia y rollback en PostgreSQL real.
+Usa Docker automaticamente o las variables `TEST_DB_*` documentadas arriba.
+Las suites PostgreSQL vacian alumnos, colegios y dependencias: usar solo una base desechable.
+
+Verificacion de este modulo: `mvn verify` con PostgreSQL 17.5 temporal; 57 pruebas aprobadas,
+ninguna fallida ni omitida, incluida la reconstruccion de historial anterior a V7. JAR generado.
+El equipo tiene JDK 26.0.1; Maven compilo con `--release 21` y se verifico bytecode de Java 21
+(major version 65). La instancia temporal se detuvo al finalizar.

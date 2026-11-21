@@ -69,4 +69,3 @@ public class Student {
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
 }
-

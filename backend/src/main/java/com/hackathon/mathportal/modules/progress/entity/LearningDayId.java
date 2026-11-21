@@ -11,4 +11,3 @@ public record LearningDayId(
     @Column(name = "alumno_id") UUID studentId,
     @Column(name = "fecha") LocalDate date
 ) implements Serializable {}
-

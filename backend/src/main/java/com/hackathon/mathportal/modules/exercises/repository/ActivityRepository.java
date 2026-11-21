@@ -9,4 +9,3 @@ public interface ActivityRepository extends JpaRepository<Activity, UUID> {
     List<Activity> findByTopicIdAndActiveTrueOrderByOrderAscIdAsc(UUID topicId);
     List<Activity> findByActiveTrue();
 }
-
