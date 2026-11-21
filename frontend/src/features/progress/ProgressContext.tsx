@@ -17,10 +17,12 @@ import {
   requestPersistentStorage,
   saveProfile as persistProfile,
   saveWardrobe,
+  unsyncedAnswers,
   type StudentSnapshot,
 } from '../../offline/storage/db';
-import { syncPendingAttempts } from '../../offline/sync/syncQueue';
-import type { Gender, LessonProgress, Profile, SkillId, SkillProgress, Stats, WardrobeState } from '../../types';
+import type { AnswerRecord, CategoryId, CategoryMastery, Gender, LessonProgress, Profile, SessionKind, SkillId, SkillProgress, Stats, WardrobeState } from '../../types';
+import { computeMastery } from '../adaptive/engine';
+import { uploadAnswers } from '../adaptive/serverSync';
 import {
   adaptToGender,
   applyUnlocks,
@@ -88,7 +90,7 @@ export interface LessonResultInput {
   /** UUID de la partida: el mismo id nunca se premia dos veces. */
   attemptId: string;
   lessonId: string;
-  answers: { skill: SkillId; correct: boolean }[];
+  records: AnswerRecord[];
 }
 
 export interface LessonOutcome {
@@ -100,12 +102,23 @@ export interface LessonOutcome {
   newOutfits: string[];
 }
 
+type MasteryMap = Partial<Record<CategoryId, CategoryMastery>>;
+export interface SessionOutcome {
+  xpEarned: number;
+  leveledUp: boolean;
+  before: MasteryMap;
+  after: MasteryMap;
+}
+
 interface StudentState {
   profile: Profile | null;
   stats: Stats;
   lessons: Record<string, LessonProgress>;
   skills: Partial<Record<SkillId, SkillProgress>>;
   wardrobe: WardrobeState | null;
+  answers: AnswerRecord[];
+  mastery: MasteryMap;
+  diagnosticDoneAt: string | null;
 }
 
 interface ProgressState extends StudentState {
@@ -122,12 +135,21 @@ interface ProgressContextValue extends ProgressState {
   /** Corrige el género: actualiza el catálogo y equipa un conjunto compatible si hace falta. */
   updateGender: (gender: Gender, pendingSync: boolean) => Promise<void>;
   completeLesson: (input: LessonResultInput) => Promise<LessonOutcome>;
+  recordSession: (kind: Exclude<SessionKind, 'LECCION'>, records: AnswerRecord[]) => Promise<SessionOutcome>;
   equipOutfit: (outfitId: string) => Promise<void>;
   markCelebrated: (outfitIds: string[]) => Promise<void>;
   sync: () => Promise<void>;
 }
 
-const EMPTY_STUDENT: StudentState = { profile: null, stats: EMPTY_STATS, lessons: {}, skills: {}, wardrobe: null };
+const EMPTY_STUDENT: StudentState = { profile: null, stats: EMPTY_STATS, lessons: {}, skills: {}, wardrobe: null, answers: [], mastery: {}, diagnosticDoneAt: null };
+
+function nextStats(prev: Stats, xpEarned: number): Stats {
+  const today = dayKey();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const streak = prev.lastActiveDay === today ? prev.streak : prev.lastActiveDay === dayKey(yesterday) ? prev.streak + 1 : 1;
+  return { xp: prev.xp + xpEarned, streak, lastActiveDay: today };
+}
 
 function genderOf(profile: Profile | null): Gender {
   return profile?.gender ?? 'nina';
@@ -146,6 +168,9 @@ async function hydrateStudent(snap: StudentSnapshot | null): Promise<StudentStat
     lessons: Object.fromEntries(snap.lessons.map((l) => [l.lessonId, l])),
     skills: Object.fromEntries(snap.skills.map((s) => [s.skill, s])),
     wardrobe,
+    answers: snap.answers,
+    mastery: computeMastery(snap.answers),
+    diagnosticDoneAt: snap.diagnosticDoneAt,
   };
 }
 
@@ -165,9 +190,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sync = useCallback(async () => {
-    const pending = await syncPendingAttempts();
-    setState((s) => ({ ...s, pending }));
-  }, []);
+    const id = stateRef.current.profile?.studentId;
+    if (!id) return;
+    const uploaded = await uploadAnswers(id);
+    const pending = (await unsyncedAnswers(id)).length;
+    if (stateRef.current.profile?.studentId !== id) return;
+    const sent = new Set(uploaded?.ids);
+    commit({ pending, answers: stateRef.current.answers.map((a) => sent.has(a.id) ? { ...a, syncedAt: uploaded!.syncedAt } : a) });
+  }, [commit]);
 
   useEffect(() => {
     requestPersistentStorage();
@@ -184,8 +214,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     async (studentId: string) => {
       await queue.current; // no cambiar de cuenta a mitad de guardar una partida
       commit(await hydrateStudent(await loadStudent(studentId)));
+      void sync();
     },
-    [commit],
+    [commit, sync],
   );
 
   const closeStudent = useCallback(() => commit(EMPTY_STUDENT), [commit]);
@@ -216,10 +247,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const completeLesson = useCallback(
     (input: LessonResultInput): Promise<LessonOutcome> => {
       const run = async (): Promise<LessonOutcome> => {
-        const { attemptId, lessonId, answers } = input;
+        const { attemptId, lessonId, records } = input;
+        const answers = records.map((r) => ({ skill: r.skill, correct: r.correct }));
         const current = stateRef.current;
         const profile = current.profile;
         if (!profile) throw new Error('No hay un perfil activo');
+        if (!records.length) throw new Error('La sesión no tiene respuestas');
+        const allAnswers = [...current.answers, ...records];
+        const mastery = computeMastery(allAnswers);
 
         const correct = answers.filter((a) => a.correct).length;
         const total = answers.length;
@@ -268,20 +303,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
         const result = await commitLessonResult({
           studentId: profile.studentId,
+          attemptId,
           stats,
           lesson,
           skills: touched,
           wardrobe,
           outcome,
-          attempt: {
-            id: attemptId,
-            studentId: profile.studentId,
-            lessonId,
-            correct,
-            total,
-            skillResults: answers,
-            createdAt: new Date().toISOString(),
-          },
+          records,
+          mastery: Object.values(mastery),
         });
         // Evento repetido: se devuelve el resultado original sin volver a sumar
         if (result.duplicate) return result.outcome;
@@ -293,7 +322,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           lessons: { ...current.lessons, [lessonId]: lesson },
           skills: skillMap,
           wardrobe,
-          pending: stateRef.current.pending + 1,
+          answers: allAnswers,
+          mastery,
+          pending: stateRef.current.pending + records.length,
         });
         void sync();
         return outcome;
@@ -304,6 +335,33 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     },
     [sync, commit],
   );
+
+  const recordSession = useCallback((kind: Exclude<SessionKind, 'LECCION'>, records: AnswerRecord[]): Promise<SessionOutcome> => {
+    const run = async (): Promise<SessionOutcome> => {
+      const current = stateRef.current;
+      const profile = current.profile;
+      if (!profile || !records.length) throw new Error('No hay una sesión de aprendizaje activa');
+      const correct = records.filter((r) => r.correct).length;
+      const xpEarned = kind === 'DIAGNOSTICO' ? 50 : correct * XP_PER_CORRECT + (correct >= records.length * .75 ? XP_LESSON_BONUS : 0);
+      const stats = nextStats(current.stats, xpEarned);
+      const answers = [...current.answers, ...records];
+      const mastery = computeMastery(answers);
+      const diagnosticDoneAt = kind === 'DIAGNOSTICO' ? new Date().toISOString() : current.diagnosticDoneAt;
+      const { wardrobe } = applyUnlocks(current.wardrobe ?? initialWardrobe(profile.studentId, genderOf(profile)), stats.xp);
+      const outcome: SessionOutcome = { xpEarned, leveledUp: levelFor(stats.xp).level > levelFor(current.stats.xp).level, before: current.mastery, after: mastery };
+      const saved = await commitLessonResult({ studentId: profile.studentId, attemptId: records[0].sessionId, stats,
+        wardrobe, records, mastery: Object.values(mastery), diagnosticDoneAt: diagnosticDoneAt ?? undefined, outcome });
+      if (saved.duplicate) return saved.outcome;
+      if (stateRef.current.profile?.studentId === profile.studentId) {
+        commit({ stats, answers, mastery, diagnosticDoneAt, wardrobe, pending: current.pending + records.length });
+        void sync();
+      }
+      return outcome;
+    };
+    const next = queue.current.then(run, run);
+    queue.current = next.catch(() => undefined);
+    return next;
+  }, [commit, sync]);
 
   const updateWardrobe = useCallback(
     async (change: (w: WardrobeState) => WardrobeState) => {
@@ -348,11 +406,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       saveProfile,
       updateGender,
       completeLesson,
+      recordSession,
       equipOutfit,
       markCelebrated,
       sync,
     }),
-    [state, openStudent, closeStudent, saveProfile, updateGender, completeLesson, equipOutfit, markCelebrated, sync],
+    [state, openStudent, closeStudent, saveProfile, updateGender, completeLesson, recordSession, equipOutfit, markCelebrated, sync],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

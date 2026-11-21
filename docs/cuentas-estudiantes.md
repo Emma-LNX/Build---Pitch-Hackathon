@@ -36,7 +36,9 @@ Estudiante ──POST /api/auth/student/login {usuario, contraseña}──► Ba
 | PUT | `/api/teacher/students/{id}/password` | Profesor de su curso | Restablecer contraseña |
 | PUT | `/api/teacher/students/{id}/class` | Profesor de ambos cursos | Cambiarlo a otra clase del mismo colegio |
 
-Migraciones: `V15__student_accounts.sql` (tabla y columna `genero`) y `V16__protect_student_accounts.sql` (RLS y permisos, como V4/V6). V13–V14 pertenecen al módulo de contactos y reportes de padres integrado desde `main`.
+Migraciones: `V16__student_accounts.sql` (tabla y columna `genero`) y `V17__protect_student_accounts.sql` (RLS y permisos, como V4/V6). V13–V14 pertenecen a contactos y reportes de padres; V15 pertenece al aprendizaje adaptativo integrado desde `main`.
+
+El acceso también admite las cuentas de aula creadas por `/schools/{school}/classrooms/{classroom}/student-accounts`, cuyo dominio es `alumnos.mayamente.app`. Se comprueban su perfil y matrícula reales. `/students/me/class` devuelve `classroomId` y `classroomName` para ellas, sin inventar una asignación de curso. Cuando existen matrículas de varios ciclos, abre la del ciclo más reciente. Las cuentas creadas por curso conservan su contrato y dominio configurables.
 
 ## Configuración
 
@@ -65,5 +67,5 @@ Sin estas variables, las rutas de cuentas responden 503 con un mensaje claro: no
 1. **Revocación sin conexión.** Si se cierra sesión sin internet, el refresh token queda válido en Supabase hasta que vence. Restablecer la contraseña tampoco cierra sesiones ya preparadas en otros teléfonos. Conviene revocarlas con la Admin API (`/admin/users/{id}/logout` o equivalente) al restablecer.
 2. **Límite de intentos en memoria.** Vive en una sola instancia del backend. Con varias réplicas, moverlo a la base o a un proxy.
 3. **Límites de Supabase Auth.** Todos los inicios de sesión salen desde la IP del backend. Revisar los límites de Auth en el panel de Supabase antes de usarlo con un salón completo.
-4. **Progreso en el servidor.** Las lecciones se generan en el teléfono, mientras que el backend evalúa `actividad_versiones`. La cola offline todavía envía a `/api/progress/attempts`; falta adaptarla a `POST /api/attempts` y vincular las lecciones con actividades publicadas.
-5. **Migraciones en Supabase.** V15 y V16 no se ejecutaron contra la base compartida. Se aplican al iniciar el backend con las credenciales reales.
+4. **Progreso en el servidor.** Las nuevas lecciones, diagnósticos y misiones guardan respuestas por estudiante y sincronizan el DTO exacto a `/api/estadisticas/me/respuestas`. El modelo de dominio se conserva al cambiar de cuenta. La XP y el guardarropa siguen siendo locales: no equivalen a la XP de actividades versionadas de `/api/attempts`. Los intentos antiguos sin correspondencia con una actividad publicada se conservan localmente; no se envían al endpoint inexistente `/api/progress/attempts`.
+5. **Migraciones en Supabase.** V16 y V17 no se ejecutaron contra la base compartida. Se aplican al iniciar el backend con las credenciales reales.

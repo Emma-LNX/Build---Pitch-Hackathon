@@ -27,9 +27,11 @@ interface MyClass {
   username: string;
   schoolId: string;
   schoolName: string;
-  courseId: string;
-  courseName: string;
+  courseId: string | null;
+  courseName: string | null;
   gender: 'NINA' | 'NINO' | null;
+  classroomId?: string | null;
+  classroomName?: string | null;
 }
 
 export type LoginError = 'credenciales' | 'sin-conexion' | 'demasiados-intentos' | 'sin-clase' | 'servidor';
@@ -120,8 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: mine.displayName,
         username: mine.username,
         gender: base?.gender ?? fromApiGender(mine.gender),
-        courseId: mine.courseId,
-        courseName: mine.courseName,
+        courseId: mine.courseId ?? '',
+        courseName: mine.classroomName ?? mine.courseName ?? '',
+        classroomId: mine.classroomId,
         schoolName: mine.schoolName,
         genderPendingSync: base?.genderPendingSync,
       };

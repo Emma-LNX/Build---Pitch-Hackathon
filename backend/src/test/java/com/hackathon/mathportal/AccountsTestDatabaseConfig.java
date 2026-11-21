@@ -8,7 +8,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 /**
- * H2 con las migraciones portables de colegios (V3, V5) y cuentas (V15).
+ * H2 con las migraciones portables de colegios (V3, V5) y cuentas (V16).
  * V1 usa tipos propios de PostgreSQL, así que se crea una tabla alumnos equivalente.
  */
 @TestConfiguration
@@ -20,6 +20,7 @@ public class AccountsTestDatabaseConfig {
                 try (var statement = connection.createStatement()) { statement.execute("CREATE SCHEMA IF NOT EXISTS math_portal"); }
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V3__school_rbac.sql"));
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V5__directors.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V8__classrooms.sql"));
                 try (var statement = connection.createStatement()) {
                     statement.execute("""
                         CREATE TABLE math_portal.alumnos (
@@ -35,7 +36,7 @@ public class AccountsTestDatabaseConfig {
                             actualizado_en TIMESTAMP WITH TIME ZONE NOT NULL)
                         """);
                 }
-                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V15__student_accounts.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V16__student_accounts.sql"));
                 try (var statement = connection.createStatement()) {
                     statement.execute("CREATE SCHEMA IF NOT EXISTS auth");
                     statement.execute("CREATE TABLE auth.users (id UUID PRIMARY KEY, email VARCHAR(254), email_confirmed_at TIMESTAMP WITH TIME ZONE)");

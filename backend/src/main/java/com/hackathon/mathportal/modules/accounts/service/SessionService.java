@@ -29,7 +29,13 @@ public class SessionService {
             throw invalidCredentials();
         }
         try {
-            var tokens = auth.signIn(accounts.studentEmail(normalized), request.password());
+            AuthGateway.Tokens tokens;
+            try {
+                tokens = auth.signIn(accounts.studentEmail(normalized), request.password());
+            } catch (AuthGateway.InvalidCredentialsException legacy) {
+                // main también crea cuentas por aula con este dominio fijo.
+                tokens = auth.signIn(normalized + "@alumnos.mayamente.app", request.password());
+            }
             // Solo las cuentas creadas por un profesor entran por este formulario.
             if (!accounts.isStudentAccount(tokens.userId())) {
                 auth.signOut(tokens.accessToken());

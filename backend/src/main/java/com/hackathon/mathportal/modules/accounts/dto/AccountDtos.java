@@ -42,5 +42,5 @@ public final class AccountDtos {
 
     // ---- Estudiante ----
     public record MyClass(UUID userId, String displayName, String username, UUID schoolId, String schoolName,
-        UUID courseId, String courseName, String gender) {}
+        UUID courseId, String courseName, String gender, UUID classroomId, String classroomName) {}
 }

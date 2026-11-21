@@ -13,7 +13,9 @@ SUPABASE_DB_PASSWORD=CONTRASENA
 SUPABASE_URL=https://TU_PROYECTO.supabase.co
 ```
 
-`SUPABASE_URL` es la URL base del proyecto, sin `/` al final. Para Docker Compose se toman del `.env` de la raíz. Usar la conexión directa o Session pooler de PostgreSQL, porque los bloqueos y transacciones requieren una conexión de sesión apropiada.
+`SUPABASE_URL` es la URL base del proyecto, sin `/` al final. Para Docker Compose se toman del `.env` de la raíz.
+
+Para que la escuela cree cuentas de alumnos con usuario y contraseña ([contrato](../docs/classrooms.md#cuentas-de-alumnos-con-usuario-y-contraseña)) agregar también `SUPABASE_SERVICE_ROLE_KEY=TU_SERVICE_ROLE_KEY` (clave secreta service_role del proyecto). Es solo del backend: nunca va en el frontend ni en variables `VITE_*`. Sin ella el resto de la API funciona y la creación de cuentas responde 503. Usar la conexión directa o Session pooler de PostgreSQL, porque los bloqueos y transacciones requieren una conexión de sesión apropiada.
 
 ```sh
 cd backend

@@ -2,6 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { TempleArt } from '../components/TempleArt';
 import { AuthProvider, useAuth } from '../features/auth/AuthContext';
+import { DiagnosticPage } from '../features/adaptive/DiagnosticPage';
+import { MissionPage } from '../features/adaptive/MissionPage';
+import { TeacherPage as LearningReviewPage } from '../features/adaptive/TeacherPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { LessonPage } from '../features/exercises/LessonPage';
 import { ProfilePage } from '../features/progress/ProfilePage';
@@ -38,6 +41,7 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="profe/*" element={<StaffApp />} />
+        <Route path="profesor/*" element={<Navigate to="/profe" replace />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
     );
@@ -53,6 +57,10 @@ function AppRoutes() {
       </Route>
       <Route path="leccion/:lessonId" element={<LessonPage />} />
       <Route path="profe/*" element={<StaffApp />} />
+      <Route path="profesor/*" element={<Navigate to="/profe" replace />} />
+      <Route path="diagnostico" element={<DiagnosticPage />} />
+      <Route path="mision" element={<MissionPage />} />
+      <Route path="mi-aprendizaje" element={<LearningReviewPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

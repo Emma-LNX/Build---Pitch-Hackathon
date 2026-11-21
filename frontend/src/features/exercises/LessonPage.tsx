@@ -1,17 +1,16 @@
-import { useMemo, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { PlayerAvatar } from '../../components/Avatar';
-import { Platform } from '../../components/GameArt';
-import { CheckIcon, CloseIcon, CrossIcon, StarIcon } from '../../components/icons';
-import { ProgressBar } from '../../components/ProgressBar';
-import type { SkillId } from '../../types';
-import { newAttemptId, useProgress, type LessonOutcome } from '../progress/ProgressContext';
 import { UnlockCelebration } from '../wardrobe/UnlockCelebration';
+import { Platform } from '../../components/GameArt';
+import { StarIcon } from '../../components/icons';
+import type { AnswerRecord } from '../../types';
+import { bestDifficulty, thetaOf } from '../adaptive/engine';
+import { EXERCISES } from '../curriculum/catalog';
+import { newAttemptId, useProgress, type LessonOutcome } from '../progress/ProgressContext';
 import { findLesson, findWorld } from '../topics/worlds';
 import { generateLesson } from './generators';
-import { AnswerText, QuestionVisual } from './QuestionVisual';
-
-const PRAISE = ['¡Muy bien!', '¡Excelente!', '¡Correcto!', '¡Eres un crack!', '¡Así se hace!'];
+import { SessionRunner } from './SessionRunner';
 
 export function LessonPage() {
   const { lessonId = '' } = useParams();
@@ -24,58 +23,28 @@ export function LessonPage() {
 function LessonRun({ lessonId }: { lessonId: string }) {
   const lesson = findLesson(lessonId)!;
   const world = findWorld(lesson.worldId)!;
-  const { completeLesson } = useProgress();
+  const { completeLesson, profile, mastery } = useProgress();
   const navigate = useNavigate();
 
   const [round, setRound] = useState(0);
-  const questions = useMemo(() => generateLesson(lesson), [lesson, round]);
-  // Un UUID por partida: si el evento de finalización se repite, no se premia dos veces
   const attemptId = useMemo(() => newAttemptId(), [round]);
-  const finishing = useRef(false);
-  const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [answers, setAnswers] = useState<{ skill: SkillId; correct: boolean }[]>([]);
-  const [outcome, setOutcome] = useState<LessonOutcome | null>(null);
-  const [saving, setSaving] = useState(false);
+  // La dificultad se ajusta al nivel del alumno en la categoría de la lección
+  const difficulty = useMemo(() => bestDifficulty(thetaOf(mastery, EXERCISES[lesson.exercise].category)), [round]);
+  const questions = useMemo(() => generateLesson(lesson, difficulty), [lesson, round, difficulty]);
+  const [result, setResult] = useState<{ outcome: LessonOutcome; correct: number; total: number } | null>(null);
 
-  const question = questions[index];
-  const isCorrect = selected === question?.answer;
-  const praise = useMemo(() => PRAISE[Math.floor(Math.random() * PRAISE.length)], [index]);
-
-  function check() {
-    if (!selected) return;
-    setChecked(true);
-    setAnswers((a) => [...a, { skill: question.skill, correct: isCorrect }]);
-    if (!isCorrect) navigator.vibrate?.(120);
-  }
-
-  async function next() {
-    if (index + 1 < questions.length) {
-      setIndex(index + 1);
-      setSelected(null);
-      setChecked(false);
-      return;
-    }
-    if (finishing.current) return;
-    finishing.current = true;
-    setSaving(true);
-    setOutcome(await completeLesson({ attemptId, lessonId, answers }));
-    setSaving(false);
+  async function finish(records: AnswerRecord[]) {
+    const outcome = await completeLesson({ attemptId, lessonId, records });
+    setResult({ outcome, correct: records.filter((r) => r.correct).length, total: records.length });
   }
 
   function retry() {
+    setResult(null);
     setRound((r) => r + 1);
-    setIndex(0);
-    setSelected(null);
-    setChecked(false);
-    setAnswers([]);
-    setOutcome(null);
-    finishing.current = false;
   }
 
-  if (outcome) {
-    const correct = answers.filter((a) => a.correct).length;
+  if (result) {
+    const { outcome, correct, total } = result;
     return (
       <div className="lesson-page lesson-result">
         <div className="result-card">
@@ -90,7 +59,7 @@ function LessonRun({ lessonId }: { lessonId: string }) {
             ))}
           </div>
           <p className="result-score">
-            {correct} de {answers.length} correctas
+            {correct} de {total} correctas
           </p>
           <p className="result-xp">+{outcome.xpEarned} XP</p>
           {outcome.leveledUp && <p className="result-levelup">¡Subiste de nivel!</p>}
@@ -110,80 +79,14 @@ function LessonRun({ lessonId }: { lessonId: string }) {
   }
 
   return (
-    <div className="lesson-page">
-      <header className="lesson-header">
-        <Link to={`/?mundo=${world.id}`} className="icon-btn" aria-label="Salir de la lección">
-          <CloseIcon className="icon" />
-        </Link>
-        <ProgressBar
-          value={((index + (checked ? 1 : 0)) / questions.length) * 100}
-          tone="yellow"
-          label="Avance de la lección"
-        />
-        <span className="lesson-counter">
-          {index + 1}/{questions.length}
-        </span>
-      </header>
-
-      <div className="lesson-body">
-        <p className="lesson-tag">
-          {world.name} · Lección {lesson.number}: {lesson.title}
-        </p>
-        <h1 className="question-prompt">{question.prompt}</h1>
-        {question.visual && (
-          <div className="visual-box">
-            <QuestionVisual visual={question.visual} />
-          </div>
-        )}
-        <div className="options" role="radiogroup" aria-label="Respuestas">
-          {question.options.map((opt) => {
-            let cls = 'option';
-            if (selected === opt) cls += ' option-selected';
-            if (checked && opt === question.answer) cls += ' option-correct';
-            if (checked && selected === opt && !isCorrect) cls += ' option-wrong';
-            return (
-              <button
-                key={opt}
-                role="radio"
-                aria-checked={selected === opt}
-                className={cls}
-                disabled={checked}
-                onClick={() => setSelected(opt)}
-              >
-                <AnswerText text={opt} />
-                {checked && opt === question.answer && <CheckIcon className="option-mark" />}
-                {checked && selected === opt && !isCorrect && <CrossIcon className="option-mark" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <footer className={`lesson-footer ${checked ? (isCorrect ? 'feedback-good' : 'feedback-bad') : ''}`}>
-        {checked && (
-          <div className="feedback" role="status">
-            <span className="feedback-icon" aria-hidden="true">
-              {isCorrect ? <CheckIcon /> : <CrossIcon />}
-            </span>
-            <strong>{isCorrect ? praise : 'La respuesta correcta es:'}</strong>
-            {!isCorrect && (
-              <span className="feedback-answer">
-                <AnswerText text={question.answer} />
-              </span>
-            )}
-            {question.explanation && <p>{question.explanation}</p>}
-          </div>
-        )}
-        {checked ? (
-          <button className="btn btn-primary btn-block" onClick={next} disabled={saving}>
-            {index + 1 < questions.length ? 'Siguiente' : 'Ver resultado'}
-          </button>
-        ) : (
-          <button className="btn btn-primary btn-block" onClick={check} disabled={!selected}>
-            Comprobar
-          </button>
-        )}
-      </footer>
-    </div>
+    <SessionRunner
+      key={round}
+      kind="LECCION"
+      total={questions.length}
+      next={(history) => questions[history.length] ?? null}
+      tag={() => `${world.name} · Lección ${lesson.number}: ${lesson.title}`}
+      exitTo={`/?mundo=${world.id}`}
+      onComplete={finish}
+    />
   );
 }

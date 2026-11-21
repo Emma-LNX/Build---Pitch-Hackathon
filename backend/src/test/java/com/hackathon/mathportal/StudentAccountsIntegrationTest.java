@@ -93,6 +93,9 @@ class StudentAccountsIntegrationTest {
     @BeforeEach
     void fixtures() {
         USERS.clear();
+        jdbc.update("DELETE FROM math_portal.classroom_students");
+        jdbc.update("DELETE FROM math_portal.classrooms");
+        jdbc.update("DELETE FROM auth.users");
         jdbc.update("DELETE FROM math_portal.student_accounts");
         jdbc.update("DELETE FROM math_portal.alumnos");
         jdbc.update("DELETE FROM math_portal.course_memberships");
@@ -105,6 +108,23 @@ class StudentAccountsIntegrationTest {
         member(SCHOOL_A, COURSE_A, TEACHER_A);
         member(SCHOOL_A, COURSE_A2, TEACHER_A);
         member(SCHOOL_B, COURSE_B, TEACHER_B);
+    }
+
+    @Test
+    void classroomAccountsFromMainUseTheSameLoginAndKeepTheirClassroom() throws Exception {
+        UUID student = id(91), classroom = id(92);
+        USERS.put("aula.user@alumnos.mayamente.app", new FakeUser(student, "ceiba123"));
+        jdbc.update("INSERT INTO auth.users (id, email, email_confirmed_at) VALUES (?, ?, CURRENT_TIMESTAMP)", student, "aula.user@alumnos.mayamente.app");
+        jdbc.update("INSERT INTO math_portal.school_memberships (school_id, user_id, role) VALUES (?, ?, 'ALUMNO')", SCHOOL_A, student);
+        jdbc.update("INSERT INTO math_portal.classrooms (id, school_id, grade, section, academic_year, teacher_id) VALUES (?, ?, 'CUARTO', 'B', 2026, ?)", classroom, SCHOOL_A, TEACHER_A);
+        jdbc.update("INSERT INTO math_portal.classroom_students (school_id, classroom_id, academic_year, student_id) VALUES (?, ?, 2026, ?)", SCHOOL_A, classroom, student);
+        jdbc.update("INSERT INTO math_portal.alumnos (id, auth_subject, alias, creado_en, actualizado_en) VALUES (?, ?, 'Ana', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", id(93), student.toString());
+        String access = login("aula.user", "ceiba123");
+        mvc.perform(api(get("/api/students/me/class")).header("Authorization", "Bearer " + access))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.classroomId").value(classroom.toString()))
+            .andExpect(jsonPath("$.classroomName").value("CUARTO B · 2026"))
+            .andExpect(jsonPath("$.displayName").value("Ana"));
     }
 
     @Test

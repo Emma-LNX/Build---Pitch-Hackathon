@@ -28,6 +28,9 @@ export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
+/** Token de la cuenta estudiantil activa, para fijar la identidad de un lote offline. */
+export function getStudentAccessToken(): string | null { return accessToken; }
+
 /** Renueva el token de acceso cuando vence (lo registra la sesión del estudiante). */
 export function setTokenRefresher(fn: (() => Promise<string | null>) | null) {
   refresher = fn;

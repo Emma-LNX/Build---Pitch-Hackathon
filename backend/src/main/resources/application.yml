@@ -42,6 +42,10 @@ mayamente:
     anon-key: ${SUPABASE_ANON_KEY:}
     service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
     student-email-domain: ${STUDENT_EMAIL_DOMAIN:alumnos.mayamente.invalid}
+# Admin API de Supabase Auth para crear cuentas de alumnos. La clave service_role es solo del backend.
+supabase:
+  url: ${SUPABASE_URL:http://localhost:54321}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
 
 management:
   endpoints:

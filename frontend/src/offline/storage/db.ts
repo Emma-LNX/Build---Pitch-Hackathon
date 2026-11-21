@@ -1,5 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
+  AnswerRecord,
+  CategoryMastery,
   LessonProgress,
   PendingAttempt,
   Profile,
@@ -42,10 +44,12 @@ interface MathPortalDB extends DBSchema {
   rewards: { key: string; value: RewardRecord };
   /** Cola de intentos que aún no llegan al servidor. */
   outbox: { key: string; value: PendingAttempt };
+  studentAnswers: { key: string; value: AnswerRecord & { studentId: string }; indexes: { 'by-student': string } };
+  studentMastery: { key: [string, string]; value: CategoryMastery & { studentId: string } };
 }
 
 const DB_NAME = 'math-portal';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<MathPortalDB>> | null = null;
 
@@ -56,7 +60,9 @@ export function getDB() {
         db.createObjectStore('meta');
         db.createObjectStore('outbox', { keyPath: 'id' });
       }
-      if (oldVersion < 2) {
+      // Las dos ramas usaban v2 para esquemas distintos. Detectar los stores
+      // permite actualizar ambos sin perder progreso ni mezclar estudiantes.
+      if (!db.objectStoreNames.contains('students')) {
         db.createObjectStore('students', { keyPath: 'studentId' });
         db.createObjectStore('stats', { keyPath: 'studentId' });
         db.createObjectStore('studentLessons', { keyPath: ['studentId', 'lessonId'] }).createIndex('by-student', 'studentId');
@@ -64,8 +70,10 @@ export function getDB() {
         db.createObjectStore('wardrobe', { keyPath: 'studentId' });
         db.createObjectStore('rewards', { keyPath: 'attemptId' });
       }
-      if (oldVersion < 3) db.createObjectStore('sessions', { keyPath: 'studentId' });
-      if (oldVersion === 1) await migrateV1(db, tx);
+      if (!db.objectStoreNames.contains('sessions')) db.createObjectStore('sessions', { keyPath: 'studentId' });
+      db.createObjectStore('studentAnswers', { keyPath: 'id' }).createIndex('by-student', 'studentId');
+      db.createObjectStore('studentMastery', { keyPath: ['studentId', 'category'] });
+      if ((db.objectStoreNames as DOMStringList).contains('lessons')) await migrateV1(db, tx);
     },
   });
   return dbPromise;
@@ -78,7 +86,11 @@ export function getDB() {
  */
 async function migrateV1(db: IDBPDatabase<any>, tx: any) {
   const meta = tx.objectStore('meta');
-  const profile = (await meta.get('profile')) as Profile | undefined;
+  const legacy = await meta.get('profile');
+  const profile: Profile | undefined = legacy ? {
+    ...legacy, username: legacy.username ?? '', gender: legacy.gender ?? null,
+    courseId: legacy.courseId ?? '', courseName: legacy.courseName ?? '', schoolName: legacy.schoolName ?? '',
+  } : undefined;
   const stats = (await meta.get('stats')) as Stats | undefined;
   const lessons = (await tx.objectStore('lessons').getAll()) as LessonProgress[];
   const skills = (await tx.objectStore('skills').getAll()) as SkillProgress[];
@@ -89,6 +101,13 @@ async function migrateV1(db: IDBPDatabase<any>, tx: any) {
     await tx.objectStore('stats').put({ ...(stats ?? EMPTY_STATS), studentId });
     for (const l of lessons) await tx.objectStore('studentLessons').put({ ...l, studentId });
     for (const s of skills) await tx.objectStore('studentSkills').put({ ...s, studentId });
+    if (db.objectStoreNames.contains('answers')) {
+      for (const answer of await tx.objectStore('answers').getAll()) {
+        await tx.objectStore('studentAnswers').put({ ...answer, studentId });
+      }
+    }
+    const diagnostic = await meta.get('diagnostic');
+    if (diagnostic?.completedAt) await meta.put(diagnostic.completedAt, `diagnostic:${studentId}`);
     await meta.put(studentId, 'activeStudent');
   }
   await meta.delete('profile');
@@ -105,6 +124,8 @@ export interface StudentSnapshot {
   lessons: LessonProgress[];
   skills: SkillProgress[];
   wardrobe: WardrobeState | null;
+  answers: AnswerRecord[];
+  diagnosticDoneAt: string | null;
 }
 
 function stripStudent<T extends { studentId: string }>({ studentId: _id, ...rest }: T): Omit<T, 'studentId'> {
@@ -113,12 +134,14 @@ function stripStudent<T extends { studentId: string }>({ studentId: _id, ...rest
 
 export async function loadStudent(studentId: string): Promise<StudentSnapshot | null> {
   const db = await getDB();
-  const [profile, stats, lessons, skills, wardrobe] = await Promise.all([
+  const [profile, stats, lessons, skills, wardrobe, answers, diagnostic] = await Promise.all([
     db.get('students', studentId),
     db.get('stats', studentId),
     db.getAllFromIndex('studentLessons', 'by-student', studentId),
     db.getAllFromIndex('studentSkills', 'by-student', studentId),
     db.get('wardrobe', studentId),
+    db.getAllFromIndex('studentAnswers', 'by-student', studentId),
+    db.get('meta', `diagnostic:${studentId}`),
   ]);
   if (!profile) return null;
   return {
@@ -127,6 +150,8 @@ export async function loadStudent(studentId: string): Promise<StudentSnapshot | 
     lessons: lessons.map(stripStudent),
     skills: skills.map(stripStudent),
     wardrobe: wardrobe ?? null,
+    answers: answers.map(stripStudent).sort((a, b) => a.answeredAt.localeCompare(b.answeredAt)),
+    diagnosticDoneAt: diagnostic ?? null,
   };
 }
 
@@ -185,33 +210,41 @@ export async function getReward<T>(attemptId: string): Promise<RewardRecord<T> |
  */
 export async function commitLessonResult<T>(input: {
   studentId: string;
+  attemptId: string;
   stats: Stats;
-  lesson: LessonProgress;
-  skills: SkillProgress[];
+  lesson?: LessonProgress;
+  skills?: SkillProgress[];
   wardrobe: WardrobeState;
-  attempt: PendingAttempt;
+  attempt?: PendingAttempt;
+  records?: AnswerRecord[];
+  mastery?: CategoryMastery[];
+  diagnosticDoneAt?: string;
   outcome: T;
 }): Promise<{ duplicate: boolean; outcome: T }> {
   const db = await getDB();
-  const tx = db.transaction(['stats', 'studentLessons', 'studentSkills', 'wardrobe', 'rewards', 'outbox'], 'readwrite');
-  const existing = (await tx.objectStore('rewards').get(input.attempt.id)) as RewardRecord<T> | undefined;
+  const tx = db.transaction(['meta', 'stats', 'studentLessons', 'studentSkills', 'wardrobe', 'rewards', 'outbox', 'studentAnswers', 'studentMastery'], 'readwrite');
+  const existing = (await tx.objectStore('rewards').get(input.attemptId)) as RewardRecord<T> | undefined;
   if (existing) {
+    if (existing.studentId !== input.studentId) throw new Error('La sesión pertenece a otro estudiante');
     await tx.done;
     return { duplicate: true, outcome: existing.outcome };
   }
   const { studentId } = input;
   await Promise.all([
     tx.objectStore('stats').put({ ...input.stats, studentId }),
-    tx.objectStore('studentLessons').put({ ...input.lesson, studentId }),
-    ...input.skills.map((s) => tx.objectStore('studentSkills').put({ ...s, studentId })),
+    ...(input.lesson ? [tx.objectStore('studentLessons').put({ ...input.lesson, studentId })] : []),
+    ...(input.skills ?? []).map((s) => tx.objectStore('studentSkills').put({ ...s, studentId })),
+    ...(input.records ?? []).map((a) => tx.objectStore('studentAnswers').put({ ...a, studentId })),
+    ...(input.mastery ?? []).map((m) => tx.objectStore('studentMastery').put({ ...m, studentId })),
+    ...(input.diagnosticDoneAt ? [tx.objectStore('meta').put(input.diagnosticDoneAt, `diagnostic:${studentId}`)] : []),
     tx.objectStore('wardrobe').put(input.wardrobe),
     tx.objectStore('rewards').put({
-      attemptId: input.attempt.id,
+      attemptId: input.attemptId,
       studentId,
       outcome: input.outcome,
-      createdAt: input.attempt.createdAt,
+      createdAt: input.attempt?.createdAt ?? new Date().toISOString(),
     }),
-    tx.objectStore('outbox').put(input.attempt),
+    ...(input.attempt ? [tx.objectStore('outbox').put(input.attempt)] : []),
     tx.done,
   ]);
   return { duplicate: false, outcome: input.outcome };
@@ -237,4 +270,20 @@ export async function listWardrobes(): Promise<WardrobeState[]> {
 export async function countPending(): Promise<number> {
   const db = await getDB();
   return db.count('outbox');
+}
+
+/** Solo respuestas de la cuenta activa, nunca las de todo el teléfono. */
+export async function unsyncedAnswers(studentId: string): Promise<AnswerRecord[]> {
+  const db = await getDB();
+  return (await db.getAllFromIndex('studentAnswers', 'by-student', studentId)).filter((a) => !a.syncedAt).map(stripStudent);
+}
+
+export async function markAnswersSynced(studentId: string, ids: string[], syncedAt: string) {
+  const db = await getDB();
+  const tx = db.transaction('studentAnswers', 'readwrite');
+  await Promise.all(ids.map(async (id) => {
+    const answer = await tx.store.get(id);
+    if (answer?.studentId === studentId) await tx.store.put({ ...answer, syncedAt });
+  }));
+  await tx.done;
 }

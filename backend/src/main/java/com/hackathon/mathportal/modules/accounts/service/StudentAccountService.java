@@ -19,7 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
  * Todos los permisos se comprueban aquí contra la base: un profesor solo
  * opera sobre cursos donde está asignado como PROFESOR.
  */
-@Service
+@Service("courseStudentAccountService")
 public class StudentAccountService {
     private static final Logger LOG = LoggerFactory.getLogger(StudentAccountService.class);
 
@@ -150,14 +150,36 @@ public class StudentAccountService {
             WHERE a.user_id = ?
             """, (rs, row) -> new MyClass(student, rs.getString("display_name"), rs.getString("username"),
                 rs.getObject("school_id", UUID.class), rs.getString("school_name"),
-                rs.getObject("course_id", UUID.class), rs.getString("course_name"), rs.getString("genero")),
+                rs.getObject("course_id", UUID.class), rs.getString("course_name"), rs.getString("genero"), null, null),
+            student.toString(), student).stream().findFirst()
+            .orElseGet(() -> classroomFor(student));
+    }
+
+    /** Compatibilidad con las cuentas creadas por el módulo de aulas de main. */
+    private MyClass classroomFor(UUID student) {
+        return jdbc.query("""
+            SELECT al.alias, al.genero, u.email, s.id AS school_id, s.name AS school_name,
+                   c.id AS classroom_id, c.grade, c.section, c.academic_year
+            FROM math_portal.classroom_students cs
+            JOIN math_portal.classrooms c ON c.school_id = cs.school_id AND c.id = cs.classroom_id
+            JOIN math_portal.schools s ON s.id = c.school_id
+            JOIN math_portal.school_memberships m ON m.school_id = s.id AND m.user_id = cs.student_id AND m.role = 'ALUMNO'
+            JOIN math_portal.alumnos al ON al.auth_subject = ? AND al.estado = 'ACTIVO'
+            JOIN auth.users u ON u.id = cs.student_id
+            WHERE cs.student_id = ? AND u.email LIKE '%@alumnos.mayamente.app'
+            ORDER BY c.academic_year DESC, c.id
+            """, (rs, row) -> new MyClass(student, rs.getString("alias"), rs.getString("email").split("@")[0],
+                rs.getObject("school_id", UUID.class), rs.getString("school_name"), null, null, rs.getString("genero"),
+                rs.getObject("classroom_id", UUID.class), rs.getString("grade") + " " + rs.getString("section") + " · " + rs.getInt("academic_year")),
             student.toString(), student).stream().findFirst()
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No tienes una clase asignada"));
     }
 
     public boolean isStudentAccount(UUID userId) {
-        return Boolean.TRUE.equals(jdbc.queryForObject(
-            "SELECT EXISTS(SELECT 1 FROM math_portal.student_accounts WHERE user_id = ?)", Boolean.class, userId));
+        if (Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS(SELECT 1 FROM math_portal.student_accounts WHERE user_id = ?)", Boolean.class, userId))) return true;
+        try { classroomFor(userId); return true; }
+        catch (ResponseStatusException ex) { if (ex.getStatusCode() == HttpStatus.NOT_FOUND) return false; throw ex; }
     }
 
     private record Account(UUID school, UUID course) {}

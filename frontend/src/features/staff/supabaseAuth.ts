@@ -7,7 +7,7 @@
  */
 
 const URL_BASE = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
-const ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
+const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || '';
 
 export const authConfigured = Boolean(URL_BASE && ANON_KEY);
 
