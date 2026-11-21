@@ -57,7 +57,7 @@ Modelo tipo Elo en `frontend/src/features/adaptive/engine.ts`:
 
 ## Conexión con el módulo de estadísticas
 
-- **Tabla** `math_portal.aprendizaje_respuestas` (migración `V15`): una fila por respuesta, con clave `id` del cliente para ignorar reenvíos.
+- **Tabla** `math_portal.aprendizaje_respuestas` (migración `V16`): una fila por respuesta, con clave `id` del cliente para ignorar reenvíos.
 - **`POST /api/estadisticas/me/respuestas`** (alumno): body `{ "respuestas": AnswerRecord[] }`, hasta 500. Responde `{ recibidas, nuevas }`.
 - **`GET /api/estadisticas/me/dominio`** (alumno) y **`GET /api/estadisticas/profesor/alumnos/{alumnoId}/dominio`** (profesor asignado): nivel por categoría, aciertos, tiempo promedio, errores frecuentes y `recomendadas` (las dos categorías más débiles).
 - Código: `backend/.../modules/Estadistica/Aprendizaje*.java`, con la misma identificación de alumno y profesor que `EstadisticasService`.
