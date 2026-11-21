@@ -4,6 +4,15 @@ server:
     context-path: /api
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SUPABASE_AUTH_ISSUER}
+          jwk-set-uri: ${SUPABASE_AUTH_ISSUER}/.well-known/jwks.json
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   application:
     name: math-portal
   datasource:
