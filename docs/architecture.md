@@ -11,3 +11,7 @@ Flyway es el propietario de las migraciones en `backend/src/main/resources/db/mi
 Solo la salud del backend es pública. El director confirmado puede crear su propio colegio, administrar sus miembros, cursos y asignaciones y consultar estadísticas. V3 define los perfiles y la propiedad de colegios; V4 protege las tablas nuevas. Hay tres roles: DIRECTOR, PROFESOR y ALUMNO.
 
 El frontend lo desarrolla otro integrante del equipo. La integración debe registrar usuarios con Supabase Auth y enviar sus access tokens a la API. La práctica de ejercicios y la sincronización offline quedan pendientes. El esquema privado no se consulta directamente desde el navegador. Nunca publicar contraseñas JDBC ni claves service-role.
+
+## Backend de alumnos integrado
+
+Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver [guía del backend](../backend/README.md) y [contexto de alumnos](contexto-alumnos.md). Los temas de práctica globales (tabla temas) y los temas publicados por profesores dentro de cursos (tabla topics) conservan ámbitos separados; todavía no existe una vinculación entre ambos. La sincronización de partidas usa POST /api/attempts con UUID idempotente. Las migraciones de alumnos son V1–V2 y las escolares V3–V6. El emisor se puede configurar con SUPABASE_AUTH_ISSUER o derivar de SUPABASE_URL.

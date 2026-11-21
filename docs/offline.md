@@ -25,3 +25,7 @@ Pendiente:
 2. Definir expiración del contenido, manejo de conflictos y limpieza de datos al cerrar sesión o cambiar de cuenta.
 
 Las respuestas de autenticación y el progreso privado no deben añadirse a reglas generales de caché HTTP. La evaluación offline y sus límites deben diseñarse antes de descargar soluciones. Reservar la sincronización final y la persistencia remota para cuando vuelva la conexión.
+
+## Backend de alumnos integrado
+
+Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver [guía del backend](../backend/README.md) y [contexto de alumnos](contexto-alumnos.md). Los temas de práctica globales (tabla temas) y los temas publicados por profesores dentro de cursos (tabla topics) conservan ámbitos separados; todavía no existe una vinculación entre ambos. La sincronización de partidas usa POST /api/attempts con UUID idempotente. Las migraciones de alumnos son V1–V2 y las escolares V3–V6. El emisor se puede configurar con SUPABASE_AUTH_ISSUER o derivar de SUPABASE_URL.

@@ -12,9 +12,11 @@ public class RbacTestDatabaseConfig {
     @Bean
     FlywayMigrationStrategy testMigrations(DataSource dataSource) {
         return flyway -> {
-            flyway.migrate(); // V1: common relational schema; PostgreSQL-specific RLS is checked separately.
+            // H2 exercises school authorization; PostgreSQL migrations run in the student integration suite.
             try (var connection = dataSource.getConnection()) {
-                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V3__directors.sql"));
+                try (var statement = connection.createStatement()) { statement.execute("CREATE SCHEMA IF NOT EXISTS math_portal"); }
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V3__school_rbac.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V5__directors.sql"));
                 try (var statement = connection.createStatement()) {
                     statement.execute("CREATE SCHEMA IF NOT EXISTS auth");
                     statement.execute("CREATE TABLE auth.users (id UUID PRIMARY KEY, email VARCHAR(254), email_confirmed_at TIMESTAMP WITH TIME ZONE)");
