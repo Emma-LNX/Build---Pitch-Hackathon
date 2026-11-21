@@ -2,6 +2,8 @@
 
 MayaMente incluye [paneles de profesor y director](docs/staff-frontend.md), acceso de [estudiantes con cuentas creadas por su profesor](docs/cuentas-estudiantes.md) y [guardarropa de avatares](docs/guardarropa.md). Configurar las variables públicas de Supabase indicadas en la guía del panel antes de compilar el frontend para usar el acceso por correo.
 
+Antes de publicar: ejecutar `pnpm check:config`, `pnpm test` y `pnpm build` en `frontend`. Vite y Docker Compose pueden tomar la configuración pública directamente del `.env` raíz. El acceso necesita `SUPABASE_URL` y `SUPABASE_ANON_KEY` o `SUPABASE_PUBLISHABLE_KEY`; las tres credenciales PostgreSQL no sustituyen esos valores. Para crear estudiantes se necesita además `SUPABASE_SERVICE_ROLE_KEY`, solo en el backend. Con la configuración completa, desplegar con `docker compose up --build -d` en un servidor con HTTPS y configurar la URL `/profe` del dominio en las Redirect URLs de Supabase.
+
 Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. Incluye [aulas por escuela, grado, sección y ciclo](docs/classrooms.md), con profesor y matrícula de estudiantes, [estadísticas del profesor](docs/teachers.md) y [reportes semanales por correo a padres](docs/parents.md). La experiencia de práctica offline está pendiente.
 
 ```text
