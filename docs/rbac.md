@@ -11,6 +11,7 @@ Hay tres roles: DIRECTOR, PROFESOR y ALUMNO. Todos los permisos se limitan al co
 | Crear y eliminar cursos | Solo en su colegio | No | No |
 | Asignar integrantes a cursos | Solo en su colegio | No | No |
 | Consultar estadísticas administrativas | Solo en su colegio | No | No |
+| Registrar padres y enviar reportes | No | Solo para alumnos de sus aulas | No |
 
 La cuenta de director no es un permiso global. Crear un perfil nuevo no concede acceso a colegios existentes. El modelo permite ser profesor o alumno en un colegio y director de otro. La membresía escolar por sí sola no da acceso a todos los cursos.
 

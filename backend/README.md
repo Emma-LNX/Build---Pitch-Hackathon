@@ -127,6 +127,10 @@ El modulo usa Java 21, el DataSource existente y el esquema `math_portal`. El co
 `/estadisticas`; `application.yml` aporta `/api` una sola vez. Todas estas rutas requieren
 `Authorization: Bearer <access_token de Supabase>`.
 
+El profesor responsable de un aula también puede registrar contactos de padres o tutores y enviarles
+reportes de progreso por SMTP. El backend envía automáticamente un reporte por semana a cada contacto.
+Ver el [contrato de contactos y reportes](../docs/parents.md).
+
 | Metodo | Ruta completa | Resultado |
 | --- | --- | --- |
 | GET | `/api/estadisticas/me` | Nivel y avance de XP, racha de practica, totales, aciertos por tema y promedios por desafio. |
