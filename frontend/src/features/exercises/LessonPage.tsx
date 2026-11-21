@@ -9,15 +9,20 @@ import { useProgress, type LessonOutcome } from '../progress/ProgressContext';
 import { findLesson, findWorld } from '../topics/worlds';
 import { generateLesson } from './generators';
 import { AnswerText, QuestionVisual } from './QuestionVisual';
+import { DailyCheckInGate } from '../wellbeing/DailyCheckInGate';
 
 const PRAISE = ['¡Muy bien!', '¡Excelente!', '¡Correcto!', '¡Eres un crack!', '¡Así se hace!'];
 
 export function LessonPage() {
   const { lessonId = '' } = useParams();
+  const { profile } = useProgress();
   const lesson = findLesson(lessonId);
   if (!lesson) return <Navigate to="/" replace />;
   // `key` reinicia todo el estado al repetir o cambiar de lección
-  return <LessonRun key={lessonId} lessonId={lessonId} />;
+  if (!profile) return <Navigate to="/" replace />;
+  return <DailyCheckInGate studentId={profile.studentId} lessonId={lessonId}>
+    <LessonRun key={lessonId} lessonId={lessonId} />
+  </DailyCheckInGate>;
 }
 
 function LessonRun({ lessonId }: { lessonId: string }) {

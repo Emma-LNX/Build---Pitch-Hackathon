@@ -11,17 +11,16 @@ import { getDB } from '../storage/db';
  * Si no hay internet o el servidor falla, los intentos se quedan en la cola
  * y se reintenta al volver la conexión o al abrir la app.
  */
-let running: Promise<number> | null = null;
+const running = new Map<string, Promise<number>>();
 
-export function syncPendingAttempts(): Promise<number> {
-  running ??= doSync().finally(() => {
-    running = null;
-  });
-  return running;
+export function syncPendingAttempts(accountId: string): Promise<number> {
+  let task = running.get(accountId);
+  if (!task) { task = doSync(accountId).finally(() => running.delete(accountId)); running.set(accountId, task); }
+  return task;
 }
 
-async function doSync(): Promise<number> {
-  const db = await getDB();
+async function doSync(accountId: string): Promise<number> {
+  const db = await getDB(accountId);
   const pending = await db.getAll('outbox');
   if (pending.length === 0 || !navigator.onLine) return pending.length;
 

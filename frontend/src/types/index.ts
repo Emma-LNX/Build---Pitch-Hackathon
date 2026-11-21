@@ -50,6 +50,8 @@ export type CapColor = 'terracota' | 'jade' | 'ocre' | 'cielo' | 'morado';
 
 export interface Profile {
   studentId: string;
+  authUserId?: string;
+  timeZone?: string;
   name: string;
   grade: string;
   section: string;
@@ -61,6 +63,21 @@ export interface Stats {
   streak: number;
   /** Último día (YYYY-MM-DD, hora local) en que completó una lección. */
   lastActiveDay: string | null;
+}
+
+export type FoodAnswer = 'SUFICIENTE' | 'POCO' | 'NO_HE_COMIDO' | 'PREFIERO_NO_RESPONDER';
+export type MoodAnswer = 'FELIZ' | 'TRANQUILO' | 'TRISTE' | 'PREOCUPADO' | 'CANSADO' | 'PREFIERO_NO_RESPONDER';
+
+export interface DailyCheckIn {
+  studentId: string;
+  date: string;
+  sleepHours: number | null;
+  food: FoodAnswer;
+  mood: MoodAnswer;
+  timeZone: string;
+  createdAt: string;
+  synced?: boolean;
+  syncError?: string;
 }
 
 export interface LessonProgress {

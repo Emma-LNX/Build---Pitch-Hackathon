@@ -8,9 +8,9 @@ Se usa `JdbcTemplate` en los repositorios de membresías y temas para expresar e
 
 Flyway es el propietario de las migraciones en `backend/src/main/resources/db/migration`. Hibernate y Flyway usan el esquema `math_portal`. V1–V2 definen alumnos y ejercicios; V3–V4 colegios, cursos, membresías y RLS; V5–V6 directores; V7 estadísticas de Chou. La conexión JDBC de propietario omite RLS: la API aplica la autorización en sus consultas.
 
-Solo la salud del backend es pública. El director confirmado puede crear su propio colegio, administrar sus miembros, cursos y asignaciones y consultar estadísticas. Hay tres roles: DIRECTOR, PROFESOR y ALUMNO.
+La salud y la configuración pública de Auth (`GET /api/auth/config`, solo URL y publishable key) son públicas. El director confirmado puede crear su propio colegio, administrar sus miembros, cursos y asignaciones y consultar estadísticas. Hay tres roles: DIRECTOR, PROFESOR y ALUMNO.
 
-El frontend lo desarrolla otro integrante del equipo. La integración debe registrar usuarios con Supabase Auth y enviar sus access tokens a la API. La API ya guarda partidas; la sincronización offline del cliente queda pendiente. El esquema privado no se consulta directamente desde el navegador. Nunca publicar contraseñas JDBC ni claves service-role.
+El frontend inicia sesión con Supabase Auth, vincula su perfil al alumno remoto y envía access tokens a la API. El [registro diario](registro-diario.md) se guarda en PostgreSQL y se sincroniza offline con una cola aislada por cuenta. La adaptación de la sincronización de partidas del cliente queda pendiente. El esquema privado no se consulta directamente desde el navegador. Nunca publicar contraseñas JDBC ni claves service-role.
 
 ## Backend de alumnos integrado
 

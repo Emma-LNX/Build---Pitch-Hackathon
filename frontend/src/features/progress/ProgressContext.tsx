@@ -8,6 +8,10 @@ import {
   saveProfile as persistProfile,
 } from '../../offline/storage/db';
 import { syncPendingAttempts } from '../../offline/sync/syncQueue';
+import { useAccountId } from '../auth/AuthContext';
+import { linkStudent } from '../auth/studentLink';
+import { syncDailyCheckIns } from '../../offline/sync/dailyCheckIns';
+import { importLegacyProfile } from '../auth/legacyProfile';
 import type { LessonProgress, Profile, SkillId, SkillProgress, Stats } from '../../types';
 
 export const XP_PER_LEVEL = 100;
@@ -84,7 +88,7 @@ interface ProgressState {
 }
 
 interface ProgressContextValue extends ProgressState {
-  saveProfile: (profile: Profile) => Promise<void>;
+  saveProfile: (profile: Profile, importLocal?: boolean) => Promise<void>;
   completeLesson: (input: LessonResultInput) => Promise<LessonOutcome>;
   sync: () => Promise<void>;
 }
@@ -92,6 +96,7 @@ interface ProgressContextValue extends ProgressState {
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
+  const accountId = useAccountId();
   const [state, setState] = useState<ProgressState>({
     ready: false,
     profile: null,
@@ -102,13 +107,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   });
 
   const sync = useCallback(async () => {
-    const pending = await syncPendingAttempts();
+    const pending = await syncPendingAttempts(accountId);
     setState((s) => ({ ...s, pending }));
-  }, []);
+  }, [accountId]);
 
   useEffect(() => {
     requestPersistentStorage();
-    loadSnapshot().then((snap) => {
+    loadSnapshot(accountId).then((snap) => {
       setState({
         ready: true,
         profile: snap.profile,
@@ -122,12 +127,29 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     const onOnline = () => void sync();
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-  }, [sync]);
+  }, [sync, accountId]);
 
-  const saveProfile = useCallback(async (profile: Profile) => {
-    await persistProfile(profile);
-    setState((s) => ({ ...s, profile }));
-  }, []);
+  useEffect(() => {
+    if (!state.profile) return;
+    const profile = state.profile;
+    const synchronize = () => { void syncDailyCheckIns(accountId, profile).catch(() => {
+      // La cola se conserva; el formulario muestra errores al consultar o enviar.
+    }); };
+    synchronize();
+    window.addEventListener('online', synchronize);
+    window.addEventListener('focus', synchronize);
+    return () => { window.removeEventListener('online', synchronize); window.removeEventListener('focus', synchronize); };
+  }, [accountId, state.profile]);
+
+  const saveProfile = useCallback(async (profile: Profile, importLocal = false) => {
+    const linked = await linkStudent(accountId, profile);
+    if (importLocal) await importLegacyProfile(accountId, linked);
+    await persistProfile(accountId, linked);
+    const snap = await loadSnapshot(accountId);
+    setState((s) => ({ ...s, profile: linked, stats: snap.stats,
+      lessons: Object.fromEntries(snap.lessons.map((l) => [l.lessonId, l])),
+      skills: Object.fromEntries(snap.skills.map((entry) => [entry.skill, entry])), pending: snap.pending }));
+  }, [accountId]);
 
   const completeLesson = useCallback(
     async ({ lessonId, answers }: LessonResultInput): Promise<LessonOutcome> => {
@@ -162,7 +184,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       }
       const touched = [...new Set(answers.map((a) => a.skill))].map((s) => skillMap[s]!);
 
-      await saveLessonResult(stats, lesson, touched, {
+      await saveLessonResult(accountId, stats, lesson, touched, {
         id: uuid(),
         studentId: state.profile?.studentId ?? 'anonimo',
         lessonId,
@@ -188,7 +210,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         leveledUp: levelFor(stats.xp).level > levelFor(prevStats.xp).level,
       };
     },
-    [state, sync],
+    [state, sync, accountId],
   );
 
   const value = useMemo(() => ({ ...state, saveProfile, completeLesson, sync }), [state, saveProfile, completeLesson, sync]);

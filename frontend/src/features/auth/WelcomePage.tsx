@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Avatar, CAP_COLORS, CAP_LABELS } from '../../components/Avatar';
 import { Platform } from '../../components/GameArt';
@@ -6,6 +6,9 @@ import { TempleArt } from '../../components/TempleArt';
 import { uuid } from '../../lib/random';
 import type { CapColor } from '../../types';
 import { useProgress } from '../progress/ProgressContext';
+import { useAccountId } from './AuthContext';
+import { legacyProfile } from './legacyProfile';
+import type { Profile } from '../../types';
 
 const GRADES = ['4to', '5to', '6to'];
 const SECTIONS = ['A', 'B', 'C', 'D'];
@@ -16,6 +19,7 @@ const SECTIONS = ['A', 'B', 'C', 'D'];
  */
 export function WelcomePage() {
   const { profile, saveProfile } = useProgress();
+  const accountId = useAccountId();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editing = params.get('editar') === '1' && !!profile;
@@ -24,19 +28,27 @@ export function WelcomePage() {
   const [grade, setGrade] = useState(profile?.grade ?? '4to');
   const [section, setSection] = useState(profile?.section ?? 'A');
   const [capColor, setCapColor] = useState<CapColor>(profile?.capColor ?? 'terracota');
+  const [legacy, setLegacy] = useState<Profile | null>(null);
+  const [importLocal, setImportLocal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { void legacyProfile(accountId).then(setLegacy).catch(() => {}); }, [accountId]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     const clean = name.trim().replace(/\s+/g, ' ');
     if (!clean) return;
-    await saveProfile({
+    setSaving(true); setError('');
+    try { await saveProfile({
       studentId: profile?.studentId ?? uuid(),
       name: clean,
       grade,
       section,
       capColor,
-    });
+    }, importLocal);
     navigate(editing ? '/perfil' : '/', { replace: true });
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo vincular el perfil.'); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -54,6 +66,13 @@ export function WelcomePage() {
       <form className="panel welcome-form" onSubmit={submit}>
         <h2>{editing ? 'Editar perfil' : '¡Hola, explorador!'}</h2>
         {!editing && <p className="hint">Sube a los templos mayas resolviendo retos de matemática.</p>}
+        {!editing && legacy && <label className="daily-mood">
+          <input type="checkbox" checked={importLocal} onChange={(e) => {
+            setImportLocal(e.target.checked);
+            if (e.target.checked) { setName(legacy.name); setGrade(legacy.grade); setSection(legacy.section); setCapColor(legacy.capColor); }
+          }} />
+          <span>El perfil local de {legacy.name} es mío. Vincular su progreso y respuestas a esta cuenta.</span>
+        </label>}
 
         <label className="field">
           <span>¿Cómo te llamas?</span>
@@ -112,8 +131,9 @@ export function WelcomePage() {
           </div>
         </fieldset>
 
-        <button className="btn btn-primary btn-block" type="submit" disabled={!name.trim()}>
-          {editing ? 'Guardar' : '¡Empezar la aventura!'}
+        {error && <p role="alert">{error}</p>}
+        <button className="btn btn-primary btn-block" type="submit" disabled={!name.trim() || saving}>
+          {saving ? 'Vinculando…' : editing ? 'Guardar' : '¡Empezar la aventura!'}
         </button>
         {editing && (
           <button type="button" className="btn btn-secondary btn-block" onClick={() => navigate('/perfil')}>

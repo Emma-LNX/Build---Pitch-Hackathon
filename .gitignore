@@ -11,3 +11,5 @@ target/
 .DS_Store
 Thumbs.db
 .cache/
+frontend/test-results/
+frontend/playwright-report/

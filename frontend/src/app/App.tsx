@@ -7,10 +7,22 @@ import { ProfilePage } from '../features/progress/ProfilePage';
 import { ProgressPage } from '../features/progress/ProgressPage';
 import { ProgressProvider, useProgress } from '../features/progress/ProgressContext';
 import { MapPage } from '../features/topics/MapPage';
+import { AuthProvider, useSession } from '../features/auth/AuthContext';
+import { LoginPage } from '../features/auth/LoginPage';
+import { authClient } from '../lib/auth';
+import { DailySyncStatus } from '../features/wellbeing/DailySyncStatus';
 
 export function App() {
+  return <AuthProvider><AuthenticatedApp /></AuthProvider>;
+}
+
+function AuthenticatedApp() {
+  const session = useSession();
+  if (!session) return <LoginPage />;
   return (
-    <ProgressProvider>
+    <ProgressProvider key={session.user.id}>
+      <div className="session-bar"><span>{session.user.email}</span><button type="button" className="btn btn-secondary" onClick={() => { void authClient().then((client) => client.auth.signOut({ scope: 'local' })); }}>Cerrar sesión</button></div>
+      <DailySyncStatus />
       <AppRoutes />
     </ProgressProvider>
   );

@@ -8,7 +8,7 @@ Estado: MVP de backend implementado hasta controladores. Las reglas propuestas e
 
 La aplicación es una plataforma de acompañamiento educativo para aprender y repasar matemáticas mediante juegos y gamificación. Cada alumno podrá practicar, avanzar en el contenido, obtener puntos, subir de nivel, mantener una racha y consultar su posición en un ranking.
 
-El repositorio contiene un frontend base en React y TypeScript, y un backend en Java 21 con Spring Boot, JPA y Flyway. PostgreSQL en Supabase almacena los datos. El backend incluye entidades, migraciones, servicios, repositorios, DTO y controladores; valida tokens de Supabase Auth. La integración del frontend y su cola offline sigue pendiente.
+El repositorio contiene un frontend en React y TypeScript, y un backend en Java 21 con Spring Boot, JPA y Flyway. PostgreSQL en Supabase almacena los datos. El frontend inicia sesión con Supabase Auth, vincula el perfil con el alumno y sincroniza el [registro diario](registro-diario.md), también cuando recupera conexión. La adaptación de la cola de partidas del frontend al contrato del backend sigue pendiente.
 
 Este documento desarrolla el contexto de alumnos. Incluye las entidades mínimas de contenido necesarias para explicar sus relaciones; la autoría de juegos, profesores, tutores, aulas, pagos y administración de contenidos queda fuera de este primer alcance.
 
