@@ -134,7 +134,7 @@ El modulo usa Java 21, el DataSource existente y el esquema `math_portal`. El co
 | GET | `/api/estadisticas/me/historial/niveles` | Evolucion de XP y nivel en cada recompensa. |
 | GET | `/api/estadisticas/me/historial/errores` | Errores y preguntas omitidas por partida y version, sin revelar la respuesta correcta. |
 | PUT | `/api/estadisticas/me/partidas/{partidaId}/tiempo` | Registra tiempos de una partida propia ya enviada a `/api/attempts`. |
-| GET | `/api/estadisticas/profesor/alumnos` | Lista paginada de alumnos activos de cursos asignados al profesor. |
+| GET | `/api/estadisticas/profesor/alumnos` | Lista paginada de alumnos activos de aulas asignadas al profesor. |
 | GET | `/api/estadisticas/profesor/alumnos/{alumnoId}` | Resumen del alumno asignado. |
 | GET | `/api/estadisticas/profesor/alumnos/{alumnoId}/desafios` | Partidas y tiempos individuales del alumno. |
 | GET | `/api/estadisticas/profesor/alumnos/{alumnoId}/historial/niveles` | Historial de XP y niveles del alumno. |
@@ -144,9 +144,9 @@ Las listas aceptan `?page=0&size=20` (size de 1 a 100). Los campos de detalle de
 usan nombres en espanol; las filas SQL usan `snake_case` y los contenedores/DTO usan `camelCase`.
 `alumnoId` es el ID del perfil de `alumnos`, que puede diferir del subject de Auth. Se obtiene
 de la lista del profesor; el ID del propietario nunca se acepta en el cuerpo de una escritura.
-Se verifica en BD que profesor y alumno tengan los roles respectivos en el mismo colegio y curso.
-Compartir solo colegio no basta. Sin membresia de profesor: 403. Alumno ajeno, inactivo o
-partida ajena: 404. La revocacion de membresias tiene efecto en la siguiente consulta.
+Se verifica en BD que el profesor sea responsable del aula y que el alumno esté matriculado en ella.
+Compartir solo colegio o curso no basta. Sin membresía de profesor: 403. Alumno ajeno, inactivo o
+partida ajena: 404. La revocación de la matrícula o la reasignación del aula tiene efecto en la siguiente consulta.
 
 Una partida terminada es cualquier intento aceptado, aprobado o fallido. Un desafio completado
 es una actividad distinta con al menos una aprobacion. Los aciertos por tema se ponderan por

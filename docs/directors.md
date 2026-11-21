@@ -44,22 +44,24 @@ Todas las rutas requieren `Authorization: Bearer <access_token>`. Solo `GET /api
 | GET | `/api/schools/{school}/courses/{course}/members` | Integrantes del curso |
 | PUT | `/api/schools/{school}/courses/{course}/members/{user}` | Sin cuerpo; asigna una cuenta del mismo colegio; `204` |
 | DELETE | `/api/schools/{school}/courses/{course}/members/{user}` | Retira del curso; `204` |
-| GET | `/api/schools/{school}/statistics` | `{ "professors": 0, "students": 0, "courses": 0, "topics": 0 }` |
+| GET | `/api/schools/{school}/statistics` | `{ "professors": 0, "students": 0, "courses": 0, "topics": 0, "classrooms": 0 }` |
 
-La estadística devuelve conteos actuales reales. Las métricas de aprendizaje quedan pendientes del módulo de ejercicios/progreso. El director puede consultar temas de sus cursos; publicarlos sigue reservado a profesores asignados.
+La estadística administrativa devuelve conteos actuales reales. El profesor asignado obtiene [métricas de aprendizaje de su aula](teachers.md) desde las partidas de los alumnos. El director puede consultar temas de sus cursos; publicarlos sigue reservado a profesores asignados.
 
 Los campos desconocidos se rechazan. Un token inválido recibe `401`; un director sin correo confirmado, `403`; un colegio o curso ajeno, `404`; un conflicto de rol o datos, `409`. Los errores de dominio usan Problem Details con `status` y `detail`.
 
 ## Persistencia y aislamiento
 
-V3 agrega `director_accounts` y `school_directors`, sin modificar migraciones anteriores. Hay un director por colegio y varios colegios por director. V4 revoca permisos directos de cliente y activa RLS en las tablas nuevas. Los roles PROFESOR y ALUMNO siguen en `school_memberships`; DIRECTOR se deriva de `school_directors`.
+V5 agrega `director_accounts` y `school_directors`, sin modificar migraciones anteriores. Hay un director por colegio y varios colegios por director. V6 revoca permisos directos de cliente y activa RLS en las tablas nuevas. Los roles PROFESOR y ALUMNO siguen en `school_memberships`; DIRECTOR se deriva de `school_directors`.
 
 Las operaciones administrativas comprueban la confirmación del correo y bloquean la relación de propiedad durante la transacción. Cada curso y miembro se filtra por colegio. La conexión JDBC propietaria omite RLS, por lo que estas comprobaciones de la API siguen siendo obligatorias.
 
-Los colegios anteriores a V3 no reciben director automáticamente. Un operador de confianza puede vincularlos explícitamente por SQL tras registrar su director. No existe una ruta pública para apropiarse de colegios existentes.
+Los colegios anteriores a V5 no reciben director automáticamente. Un operador de confianza puede vincularlos explícitamente por SQL tras registrar su director. No existe una ruta pública para apropiarse de colegios existentes.
 
 ## Pruebas
 
-`mvn test` verifica la API con JWT firmados, JWKS local y H2 temporal aplicando V1 y V3. Las migraciones PostgreSQL de RLS V2/V4 y consultas de aislamiento se han verificado por separado en PostgreSQL temporal. No se lee `.env`, no se modifica Supabase y no se envían correos en las pruebas. El envío real depende de la configuración de Supabase y SMTP.
+`mvn test` verifica la API con JWT firmados, JWKS local y H2 temporal aplicando V3, V5 y V8. Las migraciones PostgreSQL de RLS V4/V6 y consultas de aislamiento se han verificado por separado en PostgreSQL temporal. No se lee `.env`, no se modifica Supabase y no se envían correos en las pruebas. El envío real depende de la configuración de Supabase y SMTP.
 
 Fuentes: [registro Supabase](https://supabase.com/docs/reference/javascript/auth-signup), [confirmación del correo](https://supabase.com/docs/guides/auth/general-configuration).
+
+El director también administra [aulas y matrículas](classrooms.md). Antes de retirar un profesor debe reasignar sus aulas; retirar un alumno de la escuela elimina también sus matrículas en aulas de esa escuela.

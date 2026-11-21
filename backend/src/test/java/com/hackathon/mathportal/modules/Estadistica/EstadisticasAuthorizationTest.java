@@ -17,7 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 class EstadisticasAuthorizationTest {
     private final UUID teacher = UUID.randomUUID(), otherTeacher = UUID.randomUUID();
     private final UUID studentSubject = UUID.randomUUID(), studentId = UUID.randomUUID();
-    private final UUID school = UUID.randomUUID(), course = UUID.randomUUID(), unassigned = UUID.randomUUID();
+    private final UUID school = UUID.randomUUID(), course = UUID.randomUUID(),
+        unassigned = UUID.randomUUID(), classroom = UUID.randomUUID();
     private JdbcTemplate jdbc;
     private EstadisticasRepository repository;
     private EstadisticasService service;
@@ -29,6 +30,7 @@ class EstadisticasAuthorizationTest {
         jdbc = new JdbcTemplate(source);
         jdbc.execute("CREATE SCHEMA math_portal");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V3__school_rbac.sql")).execute(source);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V8__classrooms.sql")).execute(source);
         jdbc.execute("""
             CREATE TABLE math_portal.alumnos (id uuid PRIMARY KEY, auth_subject varchar(255),
                 alias varchar(40), zona_horaria varchar(100), estado varchar(20))
@@ -43,6 +45,14 @@ class EstadisticasAuthorizationTest {
         enroll(course, teacher, "PROFESOR");
         enroll(unassigned, otherTeacher, "PROFESOR");
         enroll(course, studentSubject, "ALUMNO");
+        jdbc.update("""
+            INSERT INTO math_portal.classrooms (id, school_id, grade, section, academic_year, teacher_id)
+            VALUES (?, ?, 'PRIMERO', 'A', 2026, ?)
+            """, classroom, school, teacher);
+        jdbc.update("""
+            INSERT INTO math_portal.classroom_students (school_id, classroom_id, academic_year, student_id)
+            VALUES (?, ?, 2026, ?)
+            """, school, classroom, studentSubject);
         repository = new EstadisticasRepository(jdbc);
         service = new EstadisticasService(repository, new CurrentIdentity(), Clock.systemUTC());
     }
@@ -54,7 +64,7 @@ class EstadisticasAuthorizationTest {
     }
 
     @Test
-    void profileIdIsResolvedThroughAuthSubjectAndTeacherMustShareCourse() {
+    void profileIdIsResolvedThroughAuthSubjectAndTeacherMustOwnClassroom() {
         assertThat(repository.propia(studentSubject.toString()).orElseThrow().id()).isEqualTo(studentId);
         assertThat(repository.asignada(teacher, studentId)).isPresent();
         assertThat(repository.asignada(otherTeacher, studentId)).isEmpty();
@@ -64,11 +74,18 @@ class EstadisticasAuthorizationTest {
     }
 
     @Test
-    void repeatedSharedCoursesDoNotDuplicateStudentAndRevocationIsImmediate() {
-        enroll(unassigned, teacher, "PROFESOR");
-        enroll(unassigned, studentSubject, "ALUMNO");
+    void multipleSchoolYearsDoNotDuplicateStudentAndRevocationIsImmediate() {
+        UUID nextClassroom = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO math_portal.classrooms (id, school_id, grade, section, academic_year, teacher_id)
+            VALUES (?, ?, 'SEGUNDO', 'A', 2027, ?)
+            """, nextClassroom, school, teacher);
+        jdbc.update("""
+            INSERT INTO math_portal.classroom_students (school_id, classroom_id, academic_year, student_id)
+            VALUES (?, ?, 2027, ?)
+            """, school, nextClassroom, studentSubject);
         assertThat(repository.alumnos(teacher, 0, 1).totalElements()).isEqualTo(1);
-        jdbc.update("DELETE FROM math_portal.course_memberships WHERE user_id = ?", teacher);
+        jdbc.update("DELETE FROM math_portal.classroom_students WHERE student_id = ?", studentSubject);
         assertThat(repository.asignada(teacher, studentId)).isEmpty();
         assertThat(repository.alumnos(teacher, 0, 20).content()).isEmpty();
     }

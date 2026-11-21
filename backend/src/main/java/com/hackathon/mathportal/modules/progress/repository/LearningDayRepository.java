@@ -9,4 +9,3 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface LearningDayRepository extends JpaRepository<LearningDay, LearningDayId> {
     List<LearningDay> findByIdStudentIdOrderByIdDateAsc(UUID studentId);
 }
-

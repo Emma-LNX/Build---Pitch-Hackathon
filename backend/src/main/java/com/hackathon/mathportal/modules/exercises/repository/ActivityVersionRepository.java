@@ -10,4 +10,3 @@ public interface ActivityVersionRepository extends JpaRepository<ActivityVersion
     Optional<ActivityVersion> findFirstByActivityIdAndPublishedAtLessThanEqualOrderByVersionNumberDesc(
         UUID activityId, Instant now);
 }
-

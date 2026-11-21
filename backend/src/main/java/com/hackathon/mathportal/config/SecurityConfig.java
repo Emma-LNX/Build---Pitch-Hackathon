@@ -41,7 +41,10 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                .anyRequest().authenticated())
+                .requestMatchers("/schools", "/schools/**", "/directors/**", "/students/**",
+                    "/activities/**", "/activity-versions/**", "/topics/**", "/attempts/**",
+                    "/levels/**", "/ranking/**", "/estadisticas/**").authenticated()
+                .anyRequest().denyAll())
             .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
             .build();
     }

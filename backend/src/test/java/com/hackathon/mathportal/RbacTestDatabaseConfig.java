@@ -17,6 +17,8 @@ public class RbacTestDatabaseConfig {
                 try (var statement = connection.createStatement()) { statement.execute("CREATE SCHEMA IF NOT EXISTS math_portal"); }
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V3__school_rbac.sql"));
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V5__directors.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V8__classrooms.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("teacher-test-schema.sql"));
                 try (var statement = connection.createStatement()) {
                     statement.execute("CREATE SCHEMA IF NOT EXISTS auth");
                     statement.execute("CREATE TABLE auth.users (id UUID PRIMARY KEY, email VARCHAR(254), email_confirmed_at TIMESTAMP WITH TIME ZONE)");

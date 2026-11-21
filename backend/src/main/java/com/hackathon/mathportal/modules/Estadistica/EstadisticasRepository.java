@@ -16,14 +16,13 @@ public class EstadisticasRepository {
 
     public EstadisticasRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
-    // Relacion mediante el subject verificado y roles de BD, nunca claims de rol del JWT.
+    // La autorización usa la asignación vigente al aula y la matrícula del alumno.
     private static final String ASIGNADO = """
         EXISTS (
-            SELECT 1 FROM math_portal.course_memberships profesor
-            JOIN math_portal.course_memberships estudiante
-              ON estudiante.school_id = profesor.school_id AND estudiante.course_id = profesor.course_id
-            WHERE profesor.user_id = ? AND profesor.role = 'PROFESOR'
-              AND estudiante.role = 'ALUMNO' AND CAST(estudiante.user_id AS varchar) = a.auth_subject)
+            SELECT 1 FROM math_portal.classrooms c
+            JOIN math_portal.classroom_students estudiante
+              ON estudiante.school_id = c.school_id AND estudiante.classroom_id = c.id
+            WHERE c.teacher_id = ? AND CAST(estudiante.student_id AS varchar) = a.auth_subject)
         """;
 
     public Optional<Alumno> propia(String subject) {

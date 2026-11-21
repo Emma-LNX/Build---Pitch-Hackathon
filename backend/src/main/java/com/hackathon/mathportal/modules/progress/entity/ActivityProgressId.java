@@ -10,4 +10,3 @@ public record ActivityProgressId(
     @Column(name = "alumno_id") UUID studentId,
     @Column(name = "actividad_id") UUID activityId
 ) implements Serializable {}
-

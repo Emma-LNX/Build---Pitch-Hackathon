@@ -39,4 +39,3 @@ public class ActivityProgress {
     public void setLastAttemptAt(Instant lastAttemptAt) { this.lastAttemptAt = lastAttemptAt; }
 
 }
-

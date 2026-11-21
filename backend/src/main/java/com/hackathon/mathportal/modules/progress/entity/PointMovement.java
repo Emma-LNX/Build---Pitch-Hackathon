@@ -45,4 +45,3 @@ public class PointMovement {
     public void setAwardedAt(Instant awardedAt) { this.awardedAt = awardedAt; }
 
 }
-

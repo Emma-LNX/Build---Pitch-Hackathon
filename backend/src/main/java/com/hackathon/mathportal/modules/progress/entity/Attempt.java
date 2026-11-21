@@ -81,4 +81,3 @@ public class Attempt {
     public void setAppliedTimeZone(String appliedTimeZone) { this.appliedTimeZone = appliedTimeZone; }
 
 }
-

@@ -43,7 +43,7 @@ class EstadisticasPostgresIntegrationTest {
             registry.add("spring.datasource.username", () -> System.getenv().getOrDefault("TEST_DB_USERNAME", "postgres"));
             registry.add("spring.datasource.password", () -> System.getenv().getOrDefault("TEST_DB_PASSWORD", "postgres"));
         } else {
-            postgres = new PostgreSQLContainer<>("postgres:17-alpine");
+            postgres = new PostgreSQLContainer<>("postgres:17-alpine").withInitScript("test-postgres-init.sql");
             postgres.start();
             registry.add("spring.datasource.url", postgres::getJdbcUrl);
             registry.add("spring.datasource.username", postgres::getUsername);
@@ -115,9 +115,9 @@ class EstadisticasPostgresIntegrationTest {
     }
 
     @Test
-    void allTeacherRoutesEnforceCourseMembershipAndApiPrefixOccursOnce() throws Exception {
+    void allTeacherRoutesEnforceClassroomAssignmentAndApiPrefixOccursOnce() throws Exception {
         UUID teacher = UUID.randomUUID(), outsider = UUID.randomUUID();
-        UUID school = UUID.randomUUID(), course = UUID.randomUUID();
+        UUID school = UUID.randomUUID(), course = UUID.randomUUID(), classroom = UUID.randomUUID();
         UUID alumno = jdbc.queryForObject("SELECT id FROM math_portal.alumnos WHERE auth_subject = ?",
             UUID.class, subject.toString());
         jdbc.update("INSERT INTO math_portal.schools VALUES (?, 'Colegio')", school);
@@ -126,6 +126,14 @@ class EstadisticasPostgresIntegrationTest {
             school, teacher, school, outsider, school, subject);
         jdbc.update("INSERT INTO math_portal.course_memberships VALUES (?, ?, ?, 'PROFESOR'), (?, ?, ?, 'ALUMNO')",
             school, course, teacher, school, course, subject);
+        jdbc.update("""
+            INSERT INTO math_portal.classrooms (id, school_id, grade, section, academic_year, teacher_id)
+            VALUES (?, ?, 'PRIMERO', 'A', 2026, ?)
+            """, classroom, school, teacher);
+        jdbc.update("""
+            INSERT INTO math_portal.classroom_students (school_id, classroom_id, academic_year, student_id)
+            VALUES (?, ?, 2026, ?)
+            """, school, classroom, subject);
         for (String suffix : List.of("", "/desafios", "/historial/niveles", "/historial/errores")) {
             String path = "/estadisticas/profesor/alumnos/" + alumno + suffix;
             call(get(path), teacher).andExpect(status().isOk());
@@ -134,7 +142,8 @@ class EstadisticasPostgresIntegrationTest {
         call(get("/estadisticas/profesor/alumnos"), subject).andExpect(status().isForbidden());
         mvc.perform(get("/api/estadisticas/me").contextPath("/api")).andExpect(status().isUnauthorized());
         call(get("/api/estadisticas/me"), subject).andExpect(status().isNotFound());
-        jdbc.update("DELETE FROM math_portal.course_memberships WHERE user_id = ?", teacher);
+        jdbc.update("DELETE FROM math_portal.classroom_students WHERE school_id = ? AND classroom_id = ? AND student_id = ?",
+            school, classroom, subject);
         call(get("/estadisticas/profesor/alumnos/" + alumno), teacher).andExpect(status().isNotFound());
     }
 
