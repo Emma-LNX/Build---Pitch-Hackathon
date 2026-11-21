@@ -19,6 +19,7 @@ public class RbacTestDatabaseConfig {
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V5__directors.sql"));
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V8__classrooms.sql"));
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("teacher-test-schema.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("parent-test-schema.sql"));
                 try (var statement = connection.createStatement()) {
                     statement.execute("CREATE SCHEMA IF NOT EXISTS auth");
                     statement.execute("CREATE TABLE auth.users (id UUID PRIMARY KEY, email VARCHAR(254), email_confirmed_at TIMESTAMP WITH TIME ZONE)");

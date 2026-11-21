@@ -19,3 +19,5 @@ Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver 
 El módulo [classrooms](classrooms.md) organiza aulas por escuela, grado, sección y ciclo escolar, con un profesor y matrícula de alumnos. V8 crea el modelo y V9 protege sus tablas. Los cursos permanecen independientes. La autorización administrativa se comparte mediante SchoolAdministrationAccess dentro de transacciones Spring.
 
 El módulo [teachers](teachers.md) consulta las partidas del alumno y los porcentajes de `EstadisticasService` de Chou. Comprueba la asignación al aula antes de cada consulta. V10 protege las tablas de alumnos, V11 guarda los temas difíciles y V12 protege esa selección.
+
+El módulo [parents](parents.md) guarda contactos vinculados a la matrícula y envía reportes de progreso por SMTP a petición del profesor o automáticamente cada semana. V13 protege estos contactos con RLS y sin acceso directo de cliente; V14 coordina los envíos semanales.

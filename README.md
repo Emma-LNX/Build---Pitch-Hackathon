@@ -1,6 +1,8 @@
 # Portal de repaso de matemáticas
 
-Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. Incluye [aulas por escuela, grado, sección y ciclo](docs/classrooms.md), con profesor y matrícula de estudiantes, y [estadísticas del profesor](docs/teachers.md) basadas en partidas. La experiencia de práctica offline está pendiente.
+MayaMente incluye [paneles de profesor y director](docs/staff-frontend.md), acceso de [estudiantes con cuentas creadas por su profesor](docs/cuentas-estudiantes.md) y [guardarropa de avatares](docs/guardarropa.md). Configurar las variables públicas de Supabase indicadas en la guía del panel antes de compilar el frontend para usar el acceso por correo.
+
+Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. Incluye [aulas por escuela, grado, sección y ciclo](docs/classrooms.md), con profesor y matrícula de estudiantes, [estadísticas del profesor](docs/teachers.md) y [reportes semanales por correo a padres](docs/parents.md). La experiencia de práctica offline está pendiente.
 
 ```text
 .
@@ -28,7 +30,7 @@ Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC
 │       │   ├── java/com/hackathon/mathportal/
 │       │   │   ├── config/
 │       │   │   ├── common/exception/
-│       │   │   └── modules/{auth,directors,schools,classrooms,teachers,students,courses,topics,exercises,progress,Estadistica}/
+│       │   │   └── modules/{auth,directors,schools,classrooms,teachers,parents,students,courses,topics,exercises,progress,Estadistica}/
 │       │   └── resources/db/migration/
 │       └── test/java/com/hackathon/mathportal/
 ├── docs/                       # Arquitectura y decisiones offline
@@ -42,7 +44,7 @@ Cada módulo del backend reserva `controller`, `service`, `repository`, `entity`
 
 - Frontend: React, React DOM, React Router, `idb` (IndexedDB).
 - Herramientas frontend: TypeScript, Vite, plugin React, `vite-plugin-pwa` (Workbox).
-- Backend: Spring Web, Security / OAuth2 Resource Server, Data JPA / JDBC, Validation, Actuator, driver PostgreSQL, Flyway y soporte Flyway PostgreSQL. H2 se usa solo en pruebas. Spring Boot administra sus versiones.
+- Backend: Spring Web, Security / OAuth2 Resource Server, Data JPA / JDBC, Validation, Actuator, Mail, driver PostgreSQL, Flyway y soporte Flyway PostgreSQL. H2 se usa solo en pruebas. Spring Boot administra sus versiones.
 - Desarrollo: Node.js 22.12+ con pnpm 11.25.0 (instalar con `npm install -g pnpm@11.25.0`), JDK 21, Maven 3.6.3+ o Docker con Compose v2.
 
 Se usa Spring Boot 3.5.16 con Java 21. Supabase se conecta desde Java mediante JDBC; no hace falta un SDK de Supabase para acceder a PostgreSQL. La API valida access tokens de Supabase Auth con claves asimétricas. Supabase Auth gestiona el registro por correo; la API activa el perfil de director solo después de confirmarlo.

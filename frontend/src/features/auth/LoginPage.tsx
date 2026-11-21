@@ -228,7 +228,7 @@ export function LoginPage() {
       </form>
 
       <Link to="/profe" className="teacher-link">
-        Soy profe: administrar cuentas
+        Soy profesor o director
       </Link>
     </div>
   );

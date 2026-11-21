@@ -32,7 +32,7 @@ export function StaffApp() {
 }
 
 function StaffGate() {
-  const { status } = useStaffSession();
+  const { status, session } = useStaffSession();
   if (!authConfigured) {
     return (
       <StaffShell>
@@ -47,7 +47,7 @@ function StaffGate() {
   if (status === 'cargando') return <StaffShell><Loading label="Comprobando tu sesión…" /></StaffShell>;
   if (status === 'pendiente-confirmacion') return <StaffShell><PendingConfirmation /></StaffShell>;
   if (status !== 'con-sesion') return <StaffShell><StaffLogin expired={status === 'vencida'} /></StaffShell>;
-  return <AccessGate />;
+  return <AccessGate key={session?.user.id} />;
 }
 
 function StaffShell({ children }: { children: ReactNode }) {

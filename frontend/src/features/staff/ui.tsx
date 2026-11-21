@@ -44,7 +44,9 @@ export function useRemote<T>(key: string | null, loader: (signal: AbortSignal) =
       })
       .catch((error) => {
         if (controller.signal.aborted || isAbort(error)) return;
-        setState((s) => ({ ...s, key, error, loading: false }));
+        // Si se retiró el permiso, tampoco se conserva la respuesta anterior.
+        const denied = error instanceof ApiError && [401, 403, 404].includes(error.status);
+        setState((s) => ({ ...s, ...(denied ? { data: undefined, updatedAt: null } : {}), key, error, loading: false }));
       });
     return () => controller.abort();
   }, [key, tick]);
@@ -190,6 +192,7 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   const titleId = useId();
+  const online = useOnlineStatus();
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     cancelRef.current?.focus();
@@ -211,7 +214,7 @@ export function ConfirmDialog({
           <button ref={cancelRef} className="btn btn-small btn-secondary" onClick={onCancel} disabled={busy}>
             Cancelar
           </button>
-          <button className={`btn btn-small ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm} disabled={busy}>
+          <button className={`btn btn-small ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm} disabled={busy || !online}>
             {busy ? 'Procesando…' : confirmLabel}
           </button>
         </div>

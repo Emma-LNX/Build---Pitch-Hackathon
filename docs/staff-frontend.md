@@ -82,3 +82,11 @@ El acceso y todas las operaciones administrativas requieren conexión. Sin inter
 - Series históricas para gráficas de línea (los bocetos las muestran, pero no hay endpoint tipado).
 - Administración de aulas (crear, editar, matricular, trasladar) en la interfaz: el backend la ofrece (docs/classrooms.md), pero no estaba en el alcance de estas vistas.
 - El módulo `/estadisticas/profesor/*` responde mapas sin tipo; no se usa para no adivinar campos.
+
+## Verificación de integración
+
+- `pnpm test` en `frontend`: pruebas de sesión en StrictMode, confirmación por enlace, renovación concurrente, cierre de sesión durante una renovación, aislamiento de cuentas y respuestas tardías, revocación de permisos y continuidad de datos en memoria sin conexión. Incluye recorridos de acceso por correo, selección de contexto, creación de colegio y estudiante, alta/asignación de profesor y publicación de temas. Estas pruebas de interfaz simulan el transporte HTTP con los contratos reales; no utilizan cuentas de Supabase.
+- `pnpm build`: TypeScript, bundle de producción y precaché PWA.
+- `mvn verify`: pruebas del backend con autenticación y bases de prueba aisladas. Las suites PostgreSQL requieren Docker o `TEST_DB_URL` de una base desechable; sin ellos se omiten. No apuntar las pruebas a Supabase compartido.
+- El merge con `main` conserva contactos y reportes a familias (V13–V14). Las migraciones nuevas de cuentas se numeran V15–V16 para evitar duplicados de Flyway. No se modifican las migraciones publicadas de `main`.
+- El acceso real con correo requiere configurar las dos variables públicas indicadas arriba y las URLs de confirmación en Supabase. Sin esa configuración se muestra un aviso, sin simular una sesión.

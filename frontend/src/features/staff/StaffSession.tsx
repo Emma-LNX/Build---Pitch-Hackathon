@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, type RequestOptions } from '../../lib/api';
+import { api, ApiError, OfflineError, type RequestOptions } from '../../lib/api';
 import {
   AuthError,
   getUser,
@@ -53,6 +53,7 @@ export function StaffSessionProvider({ children }: { children: ReactNode }) {
   const [redirectError, setRedirectError] = useState<AuthErrorKind | null>(null);
   const sessionRef = useRef<AuthSession | null>(null);
   const refreshing = useRef<Promise<AuthSession | null> | null>(null);
+  const startup = useRef<Promise<AuthSession | null> | null>(null);
 
   const adopt = useCallback((next: AuthSession | null, nextStatus: StaffStatus) => {
     sessionRef.current = next;
@@ -66,60 +67,68 @@ export function StaffSessionProvider({ children }: { children: ReactNode }) {
   const renew = useCallback(async (): Promise<AuthSession | null> => {
     const current = sessionRef.current;
     if (!current) return null;
-    refreshing.current ??= refreshSession(current.refreshToken)
+    if (refreshing.current) return refreshing.current;
+    const pending = refreshSession(current.refreshToken)
       .then((next) => {
+        // Una respuesta anterior a cerrar sesión nunca puede reabrirla.
+        if (sessionRef.current !== current) return null;
         adopt(next, 'con-sesion');
         return next;
       })
       .catch((error) => {
         // Sin conexión no se declara vencida: se reintenta al volver.
-        if (error instanceof AuthError && error.kind === 'sin-conexion') return null;
+        if (sessionRef.current !== current) return null;
+        if (error instanceof AuthError && ['sin-conexion', 'servidor', 'demasiados-intentos'].includes(error.kind)) return null;
         adopt(null, 'vencida');
         return null;
       })
       .finally(() => {
-        refreshing.current = null;
+        if (refreshing.current === pending) refreshing.current = null;
       });
-    return refreshing.current;
+    refreshing.current = pending;
+    return pending;
   }, [adopt]);
 
   // Arranque: retorno del enlace de confirmación o sesión de esta pestaña
   useEffect(() => {
-    const redirect = readRedirect(window.location.hash);
-    if (redirect) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-      if (redirect.kind === 'error') {
-        setRedirectError(redirect.reason);
-        setStatus('sin-sesion');
-        return;
-      }
-      getUser(redirect.accessToken)
-        .then((user) =>
-          adopt(
-            {
-              accessToken: redirect.accessToken,
-              refreshToken: redirect.refreshToken,
-              expiresAt: Date.now() + redirect.expiresIn * 1000,
-              user,
-            },
-            'con-sesion',
-          ),
-        )
-        .catch(() => {
-          setRedirectError('servidor');
-          setStatus('sin-sesion');
-        });
-      return;
+    let active = true;
+    // StrictMode repite los efectos. Compartir la promesa evita consumir dos
+    // veces el enlace de confirmación o rotar dos veces el refresh token.
+    if (!startup.current) {
+      const redirect = readRedirect(window.location.hash);
+      if (redirect) history.replaceState(null, '', window.location.pathname + window.location.search);
+      startup.current = (async () => {
+        if (redirect?.kind === 'error') throw new AuthError(redirect.reason);
+        if (redirect?.kind === 'session') {
+          const user = await getUser(redirect.accessToken);
+          return {
+            accessToken: redirect.accessToken,
+            refreshToken: redirect.refreshToken,
+            expiresAt: Date.now() + redirect.expiresIn * 1000,
+            user,
+          };
+        }
+        const stored = sessionStorage.getItem(STORAGE_KEY);
+        return stored ? refreshSession(stored) : null;
+      })();
     }
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      setStatus('sin-sesion');
-      return;
-    }
-    refreshSession(stored)
-      .then((next) => adopt(next, 'con-sesion'))
-      .catch(() => adopt(null, 'sin-sesion'));
+    startup.current.then((next) => {
+      if (active) adopt(next, next ? 'con-sesion' : 'sin-sesion');
+    }).catch((error) => {
+      if (!active) return;
+      setRedirectError(error instanceof AuthError ? error.kind : 'servidor');
+      adopt(null, 'sin-sesion');
+    });
+    return () => { active = false; };
   }, [adopt]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      if (sessionRef.current && sessionRef.current.expiresAt <= Date.now() + 60_000) void renew();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [renew]);
 
   // Renovación un minuto antes de vencer
   useEffect(() => {
@@ -167,6 +176,7 @@ export function StaffSessionProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     const current = sessionRef.current;
+    refreshing.current = null;
     adopt(null, 'sin-sesion');
     if (current) await signOut(current.accessToken);
   }, [adopt]);
@@ -182,15 +192,24 @@ export function StaffSessionProvider({ children }: { children: ReactNode }) {
       const current = sessionRef.current;
       if (!current) throw new SessionExpiredError();
       try {
-        return await api<T>(path, { ...options, token: current.accessToken });
+        const result = await api<T>(path, { ...options, token: current.accessToken });
+        if (sessionRef.current?.user.id !== current.user.id) throw new SessionExpiredError();
+        return result;
       } catch (error) {
         if (!(error instanceof ApiError) || error.status !== 401) throw error;
-        const renewed = await renew();
-        if (!renewed) throw new SessionExpiredError();
+        if (sessionRef.current?.user.id !== current.user.id) throw new SessionExpiredError();
+        // Otra petición pudo haber renovado mientras esta seguía en vuelo.
+        const renewed = sessionRef.current !== current ? sessionRef.current : await renew();
+        if (!renewed) {
+          if (sessionRef.current) throw new OfflineError();
+          throw new SessionExpiredError();
+        }
         try {
-          return await api<T>(path, { ...options, token: renewed.accessToken });
+          const result = await api<T>(path, { ...options, token: renewed.accessToken });
+          if (sessionRef.current?.user.id !== current.user.id) throw new SessionExpiredError();
+          return result;
         } catch (retry) {
-          if (retry instanceof ApiError && retry.status === 401) {
+          if (retry instanceof ApiError && retry.status === 401 && sessionRef.current === renewed) {
             adopt(null, 'vencida');
             throw new SessionExpiredError();
           }

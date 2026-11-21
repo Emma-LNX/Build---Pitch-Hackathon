@@ -253,6 +253,7 @@ function Roster({
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
   const clearSuccess = useCallback(() => setSuccess(null), []);
 
   async function confirmReset() {
@@ -273,7 +274,8 @@ function Roster({
   }
 
   async function move(student: StudentAccount, target: string) {
-    if (target === student.courseId) return;
+    if (target === student.courseId || moving || !online) return;
+    setMoving(true);
     setError(null);
     try {
       await accountsApi.move(call, student.userId, target);
@@ -282,6 +284,8 @@ function Roster({
       students.reload();
     } catch (err) {
       setError(errorMessage(err, { notFound: 'No eres profesor de ese curso.' }));
+    } finally {
+      setMoving(false);
     }
   }
 
@@ -315,7 +319,7 @@ function Roster({
                   Nueva contraseña
                 </button>
                 {classes.length > 1 && (
-                  <select aria-label={`Cambiar de curso a ${s.displayName}`} value={s.courseId} disabled={!online} onChange={(e) => move(s, e.target.value)}>
+                  <select aria-label={`Cambiar de curso a ${s.displayName}`} value={s.courseId} disabled={!online || moving} onChange={(e) => move(s, e.target.value)}>
                     {classes.map((c) => (
                       <option key={c.courseId} value={c.courseId}>
                         {c.courseName}
