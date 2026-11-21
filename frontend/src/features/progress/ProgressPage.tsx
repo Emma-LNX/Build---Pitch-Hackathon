@@ -1,16 +1,17 @@
 import { Link } from 'react-router-dom';
-import { CheckIcon, ChevronIcon } from '../../components/icons';
+import { CheckIcon } from '../../components/icons';
 import { ProgressBar } from '../../components/ProgressBar';
 import { TempleArt } from '../../components/TempleArt';
-import type { SkillId, SkillProgress } from '../../types';
-import { ALL_LESSONS, SKILL_LABELS, WORLDS } from '../topics/worlds';
+import type { SkillProgress } from '../../types';
+import { frequentErrors } from '../adaptive/engine';
+import { ERROR_LABELS } from '../adaptive/errors';
+import { MasteryList } from '../adaptive/MasteryList';
+import { ALL_LESSONS, WORLDS } from '../topics/worlds';
 import { useProgress } from './ProgressContext';
 
-const NEEDS_PRACTICE_BELOW = 0.7;
-const MIN_ANSWERS_TO_JUDGE = 3;
-
 export function ProgressPage() {
-  const { lessons, skills } = useProgress();
+  const { lessons, skills, mastery, answers, diagnosticDoneAt } = useProgress();
+  const errors = frequentErrors(answers);
 
   const skillList = Object.values(skills).filter((s): s is SkillProgress => !!s && s.total > 0);
   const correct = skillList.reduce((n, s) => n + s.correct, 0);
@@ -24,10 +25,6 @@ export function ProgressPage() {
     total > 0
       ? { label: 'Dominio del tema', value: (correct / total) * 100, detail: `${correct} de ${total} respuestas correctas` }
       : { label: 'Avance de la unidad', value: (unitDone / unit.lessons.length) * 100, detail: `${unit.name}: ${unitDone} de ${unit.lessons.length} lecciones` };
-
-  const weak = skillList
-    .filter((s) => s.total >= MIN_ANSWERS_TO_JUDGE && s.correct / s.total < NEEDS_PRACTICE_BELOW)
-    .sort((a, b) => a.correct / a.total - b.correct / b.total);
 
   return (
     <div className="page">
@@ -47,29 +44,45 @@ export function ProgressPage() {
       </section>
 
       <section className="panel panel-warm">
-        <h2>Vamos a practicar</h2>
-        {total === 0 ? (
-          <p className="hint">Juega tu primera lección y aquí te diremos qué repasar.</p>
-        ) : weak.length === 0 ? (
-          <p className="hint">¡Vas muy bien en todos los temas! Sigue subiendo al templo.</p>
+        <h2>Tu milpa</h2>
+        {!diagnosticDoneAt ? (
+          <>
+            <p className="hint">Haz la expedición de exploración y te diremos tu nivel en cada tema.</p>
+            <Link to="/diagnostico" className="btn btn-primary btn-block adaptive-cta">
+              Empezar expedición
+            </Link>
+          </>
         ) : (
-          <ul className="practice-list">
-            {weak.map((s) => (
-              <li key={s.skill}>
-                <Link to={practiceLink(s.skill)} className="practice-btn">
-                  <span className="practice-text">
-                    <strong>Practicar {SKILL_LABELS[s.skill].toLowerCase()}</strong>
-                    <small>Aciertos: {Math.round((s.correct / s.total) * 100)}%</small>
-                  </span>
-                  <span className="practice-go" aria-hidden="true">
-                    <ChevronIcon className="practice-go-icon" />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="hint">Semilla, Brote, Milpa, Elote y Mazorca: cada tema crece por separado.</p>
+            <MasteryList mastery={mastery} />
+            <Link to="/mision" className="btn btn-primary btn-block adaptive-cta">
+              Misión del día
+            </Link>
+          </>
+        )}
+        {errors.length > 0 && (
+          <div className="error-tips">
+            <h3>Ojo con esto</h3>
+            <ul>
+              {errors.map((e) => (
+                <li key={e.tag}>{ERROR_LABELS[e.tag] ?? e.tag}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {diagnosticDoneAt && (
+          <Link to="/diagnostico" className="hint adaptive-redo">
+            Repetir expedición
+          </Link>
         )}
       </section>
+
+      {answers.length > 0 && (
+        <Link to="/profesor" className="btn btn-secondary btn-block">
+          Vista del profesor
+        </Link>
+      )}
 
       <section className="panel panel-quiet">
         <h2>Mundos</h2>
@@ -124,10 +137,4 @@ function Metric({
       <span className="hint">{detail}</span>
     </div>
   );
-}
-
-/** Lleva a la primera lección que trabaja esa habilidad. */
-function practiceLink(skill: SkillId): string {
-  const lesson = ALL_LESSONS.find((l) => l.skill === skill);
-  return lesson ? `/leccion/${lesson.id}` : '/';
 }

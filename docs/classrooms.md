@@ -85,11 +85,44 @@ El endpoint existente de estadísticas del director agrega el campo `classrooms`
 
 El profesor asignado consulta el [progreso y las estadísticas del aula](teachers.md) y puede marcar temas difíciles para sus alumnos matriculados.
 
+## Cuentas de alumnos con usuario y contraseña
+
+Muchos alumnos no tienen correo. El director de la escuela (con correo confirmado) o el profesor responsable del aula les crea una cuenta; el alumno entra en la PWA (`/entrar`) solo con usuario y contraseña.
+
+| Método | Ruta relativa | Acción |
+| --- | --- | --- |
+| POST | `/{classroomId}/student-accounts` | Crea la cuenta, la membresía ALUMNO, la matrícula en el aula y el perfil `alumnos`; `201` |
+| PUT | `/{classroomId}/student-accounts/{studentId}/password` | Cambia la contraseña de una cuenta creada por la escuela y matriculada en esa aula; `204` |
+
+```json
+{ "username": "ana.lopez", "password": "secreto1", "alias": "Ana" }
+```
+
+Respuesta `201`: `{ "studentId": "UUID", "username": "ana.lopez", "alias": "Ana", "classroomId": "UUID" }`. `studentId` es el id del usuario en Supabase Auth (el `sub` de su JWT), el mismo que usan las rutas de matrícula.
+
+- `username`: 3 a 30 caracteres `[a-z0-9._]`, sin punto al inicio, al final ni dos seguidos; se guarda en minúsculas. En Supabase se registra como `usuario@alumnos.mayamente.app`, con correo confirmado, `user_metadata = {username, alias}` y `app_metadata = {kind: "student"}`. No hay tabla nueva: el usuario es la parte antes de `@`.
+- `password`: 6 a 72 caracteres. `alias`: 1 a 40 caracteres.
+- El perfil toma `grado_escolar` del grado del aula (máximo 30 caracteres) y la zona `America/Guatemala`.
+- Flujo: se validan permisos y aula, se crea el usuario con la Admin API de Supabase y luego, en una sola transacción, membresía + matrícula + perfil. Si la base de datos falla, se borra el usuario de Supabase y se devuelve el error.
+- El cambio de contraseña solo aplica a cuentas `@alumnos.mayamente.app`; nunca a alumnos que entran con su propio correo.
+- Requiere `SUPABASE_SERVICE_ROLE_KEY` en el backend (ver `backend/README.md`); sin ella responde `503`.
+
+Errores propios: `400` datos inválidos o contraseña débil; `404` profesor de otra aula, alumno, director de otra escuela o aula ajena; `403` director sin correo confirmado; `409` "Ese usuario ya existe"; `502`/`503` Supabase no disponible o sin configurar.
+
+Ejemplo en PowerShell (token de un director o del profesor del aula):
+
+```powershell
+$headers = @{ Authorization = 'Bearer <TOKEN_DIRECTOR_O_PROFESOR>' }
+$body = @{ username = 'ana.lopez'; password = 'secreto1'; alias = 'Ana' } | ConvertTo-Json
+Invoke-RestMethod 'http://localhost:8081/api/schools/<SCHOOL_ID>/classrooms/<CLASSROOM_ID>/student-accounts' `
+  -Method Post -Headers $headers -ContentType 'application/json' -Body $body
+```
+
 ## Persistencia y errores
 
 V8 agrega `classrooms` y `classroom_students`. Las claves compuestas impiden profesores/alumnos de otra escuela, roles incorrectos y ciclos que no coincidan con el aula. La restricción única de matrícula protege también frente a inserciones concurrentes. V9 revoca acceso directo de clientes y activa RLS sin políticas públicas en ambas tablas.
 
-Se mantienen las migraciones anteriores sin cambios. No se requieren variables nuevas en `.env`. Flyway aplicará V8/V9 al arrancar el backend contra Supabase; no se han aplicado al proyecto remoto durante el desarrollo.
+Se mantienen las migraciones anteriores sin cambios. Las aulas no requieren variables nuevas en `.env`; las cuentas de alumnos sí necesitan `SUPABASE_SERVICE_ROLE_KEY`. Flyway aplicará V8/V9 al arrancar el backend contra Supabase; no se han aplicado al proyecto remoto durante el desarrollo.
 
 - `400`: datos inválidos o campos desconocidos.
 - `401`: token ausente o inválido.

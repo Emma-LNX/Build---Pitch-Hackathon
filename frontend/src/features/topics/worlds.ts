@@ -1,4 +1,4 @@
-import type { Lesson, SkillId, World, WorldId } from '../../types';
+import type { ExerciseId, Lesson, SkillId, World, WorldId } from '../../types';
 
 export const SKILL_LABELS: Record<SkillId, string> = {
   'valor-posicional': 'Valor posicional',
@@ -14,15 +14,17 @@ export const SKILL_LABELS: Record<SkillId, string> = {
   perimetro: 'Perímetro',
   medidas: 'Medidas',
   dinero: 'Dinero',
+  'numeracion-maya': 'Numeración maya',
 };
 
-function lessons(worldId: WorldId, items: [string, SkillId][]): Lesson[] {
-  return items.map(([title, skill], i) => ({
+function lessons(worldId: WorldId, items: [string, SkillId, ExerciseId][]): Lesson[] {
+  return items.map(([title, skill, exercise], i) => ({
     id: `${worldId}-${i + 1}`,
     worldId,
     number: i + 1,
     title,
     skill,
+    exercise,
   }));
 }
 
@@ -32,11 +34,11 @@ export const WORLDS: World[] = [
     name: 'Tikal',
     subtitle: 'Números y operaciones',
     lessons: lessons('tikal', [
-      ['Valor posicional', 'valor-posicional'],
-      ['Sumas con llevadas', 'suma'],
-      ['Restas prestando', 'resta'],
-      ['Tablas de multiplicar', 'multiplicacion'],
-      ['Problemas de multiplicar', 'problemas'],
+      ['Valor posicional', 'valor-posicional', 'valor-posicional'],
+      ['Sumas con llevadas', 'suma', 'suma'],
+      ['Restas prestando', 'resta', 'resta'],
+      ['Tablas de multiplicar', 'multiplicacion', 'multiplicacion'],
+      ['Problemas de multiplicar', 'problemas', 'problemas'],
     ]),
   },
   {
@@ -44,11 +46,11 @@ export const WORLDS: World[] = [
     name: 'Yaxhá',
     subtitle: 'División y fracciones',
     lessons: lessons('yaxha', [
-      ['Repartir en partes iguales', 'division'],
-      ['División larga', 'division-larga'],
-      ['¿Qué fracción es?', 'fracciones'],
-      ['Comparar fracciones', 'fracciones'],
-      ['Sumar fracciones', 'fracciones'],
+      ['Repartir en partes iguales', 'division', 'division'],
+      ['División larga', 'division-larga', 'division-larga'],
+      ['¿Qué fracción es?', 'fracciones', 'fraccion-identificar'],
+      ['Comparar fracciones', 'fracciones', 'fraccion-comparar'],
+      ['Sumar fracciones', 'fracciones', 'fraccion-sumar'],
     ]),
   },
   {
@@ -56,11 +58,11 @@ export const WORLDS: World[] = [
     name: 'El Mirador',
     subtitle: 'Geometría y medidas',
     lessons: lessons('mirador', [
-      ['Ángulos', 'angulos'],
-      ['Figuras planas', 'figuras'],
-      ['Perímetro', 'perimetro'],
-      ['Medidas', 'medidas'],
-      ['Dinero en quetzales', 'dinero'],
+      ['Ángulos', 'angulos', 'angulos'],
+      ['Figuras planas', 'figuras', 'figuras'],
+      ['Perímetro', 'perimetro', 'perimetro'],
+      ['Medidas', 'medidas', 'medidas'],
+      ['Dinero en quetzales', 'dinero', 'dinero'],
     ]),
   },
 ];

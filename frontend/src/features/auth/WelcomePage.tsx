@@ -14,8 +14,7 @@ const GRADES = ['4to', '5to', '6to'];
 const SECTIONS = ['A', 'B', 'C', 'D'];
 
 /**
- * Registro local: el perfil vive en el teléfono para que funcione sin internet.
- * Cuando exista autenticación en el backend, aquí se vinculará la cuenta.
+ * Vincula el perfil con la cuenta activa y conserva su copia para uso offline.
  */
 export function WelcomePage() {
   const { profile, saveProfile } = useProgress();

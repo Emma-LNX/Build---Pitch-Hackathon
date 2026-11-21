@@ -1,0 +1,22 @@
+/** Cómo se le explica al alumno (y luego al profesor) cada error detectado. */
+export const ERROR_LABELS: Record<string, string> = {
+  'valor-absoluto': 'Confundir el dígito con lo que vale en el número',
+  'orden-cifras': 'Escribir las cifras en otro orden',
+  'sin-llevar': 'Olvidar las llevadas al sumar',
+  'resta-sin-prestar': 'Restar sin prestar',
+  'sin-correr-lugar': 'No correr un lugar al multiplicar por decenas',
+  'tabla-vecina': 'Confundir resultados de las tablas',
+  'suma-en-vez-de-multiplicar': 'Sumar cuando había que multiplicar',
+  'cociente-cercano': 'Quedarse cerca del resultado de la división',
+  'residuo-cero': 'Olvidar el residuo',
+  'cuenta-no-pintadas': 'Contar las partes sin pintar',
+  'denominador-mayor': 'Pensar que un denominador grande es una fracción grande',
+  'suma-denominadores': 'Sumar también los denominadores',
+  'confunde-area': 'Confundir perímetro con área',
+  'factor-equivocado': 'Usar la equivalencia equivocada',
+  'suma-en-vez-de-restar': 'Sumar cuando había que restar',
+  'resta-en-vez-de-sumar': 'Restar cuando había que sumar',
+  'posicion-maya': 'No multiplicar por 20 los niveles mayas de arriba',
+  'barra-vale-5': 'Contar la barra maya como 1 en vez de 5',
+  'construccion-maya': 'Armar el número maya en otro nivel',
+};

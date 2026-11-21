@@ -1,18 +1,35 @@
+import { useAccountId } from '../auth/AuthContext';
+import { linkStudent } from '../auth/studentLink';
+import { syncDailyCheckIns } from '../../offline/sync/dailyCheckIns';
+import { importLegacyProfile } from '../auth/legacyProfile';
+import { api, ApiError } from '../../lib/auth';
+import type { RemoteStudent } from '../auth/studentLink';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { dayKey, uuid } from '../../lib/random';
 import {
   EMPTY_STATS,
   loadSnapshot,
   requestPersistentStorage,
+  saveLearning,
   saveLessonResult,
   saveProfile as persistProfile,
 } from '../../offline/storage/db';
 import { syncPendingAttempts } from '../../offline/sync/syncQueue';
-import { useAccountId } from '../auth/AuthContext';
-import { linkStudent } from '../auth/studentLink';
-import { syncDailyCheckIns } from '../../offline/sync/dailyCheckIns';
-import { importLegacyProfile } from '../auth/legacyProfile';
-import type { LessonProgress, Profile, SkillId, SkillProgress, Stats } from '../../types';
+import type {
+  AnswerRecord,
+  CategoryId,
+  CategoryMastery,
+  LessonProgress,
+  Profile,
+  SessionKind,
+  SkillId,
+  SkillProgress,
+  Stats,
+} from '../../types';
+import { computeMastery } from '../adaptive/engine';
+import { uploadAnswers } from '../adaptive/serverSync';
+
+type MasteryMap = Partial<Record<CategoryId, CategoryMastery>>;
 
 export const XP_PER_LEVEL = 100;
 export const XP_PER_CORRECT = 10;
@@ -68,7 +85,7 @@ export function weekActivity(stats: Stats, now = new Date()): WeekDay[] {
 
 export interface LessonResultInput {
   lessonId: string;
-  answers: { skill: SkillId; correct: boolean }[];
+  records: AnswerRecord[];
 }
 
 export interface LessonOutcome {
@@ -78,6 +95,13 @@ export interface LessonOutcome {
   leveledUp: boolean;
 }
 
+export interface SessionOutcome {
+  xpEarned: number;
+  leveledUp: boolean;
+  before: MasteryMap;
+  after: MasteryMap;
+}
+
 interface ProgressState {
   ready: boolean;
   profile: Profile | null;
@@ -85,13 +109,31 @@ interface ProgressState {
   lessons: Record<string, LessonProgress>;
   skills: Partial<Record<SkillId, SkillProgress>>;
   pending: number;
+  answers: AnswerRecord[];
+  mastery: MasteryMap;
+  diagnosticDoneAt: string | null;
 }
 
 interface ProgressContextValue extends ProgressState {
   saveProfile: (profile: Profile, importLocal?: boolean) => Promise<void>;
   completeLesson: (input: LessonResultInput) => Promise<LessonOutcome>;
+  recordSession: (kind: Exclude<SessionKind, 'LECCION'>, records: AnswerRecord[]) => Promise<SessionOutcome>;
   sync: () => Promise<void>;
 }
+
+/** Suma XP y actualiza la racha con el reloj del teléfono. */
+function nextStats(prev: Stats, xpEarned: number): Stats {
+  const today = dayKey();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  let streak = prev.streak;
+  if (prev.lastActiveDay !== today) {
+    streak = prev.lastActiveDay === dayKey(yesterday) ? streak + 1 : 1;
+  }
+  return { xp: prev.xp + xpEarned, streak, lastActiveDay: today };
+}
+
+const XP_DIAGNOSTIC = 50;
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
@@ -104,16 +146,38 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     lessons: {},
     skills: {},
     pending: 0,
+    answers: [],
+    mastery: {},
+    diagnosticDoneAt: null,
   });
 
   const sync = useCallback(async () => {
     const pending = await syncPendingAttempts(accountId);
-    setState((s) => ({ ...s, pending }));
+    const uploaded = await uploadAnswers(accountId);
+    const sent = new Set(uploaded?.ids);
+    setState((s) => ({
+      ...s,
+      pending,
+      answers: uploaded ? s.answers.map((a) => (sent.has(a.id) ? { ...a, syncedAt: uploaded.syncedAt } : a)) : s.answers,
+    }));
   }, [accountId]);
 
   useEffect(() => {
     requestPersistentStorage();
-    loadSnapshot(accountId).then((snap) => {
+    loadSnapshot(accountId).then(async (snap) => {
+      if (!snap.profile && navigator.onLine) {
+        try {
+          const remote = await api<RemoteStudent>(accountId, '/students/me');
+          const grade = (remote.schoolGrade ?? '').toUpperCase();
+          const normalized = grade.includes('6') || grade.includes('SEXTO') ? '6to'
+            : grade.includes('5') || grade.includes('QUINTO') ? '5to' : '4to';
+          snap.profile = { studentId: remote.id, authUserId: accountId, name: remote.alias,
+            grade: normalized, section: 'A', capColor: 'terracota', timeZone: remote.timeZone };
+          await persistProfile(accountId, snap.profile);
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 404)) console.warn('No se pudo recuperar el perfil remoto.');
+        }
+      }
       setState({
         ready: true,
         profile: snap.profile,
@@ -121,6 +185,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lessons: Object.fromEntries(snap.lessons.map((l) => [l.lessonId, l])),
         skills: Object.fromEntries(snap.skills.map((s) => [s.skill, s])),
         pending: snap.pending,
+        answers: snap.answers,
+        mastery: computeMastery(snap.answers),
+        diagnosticDoneAt: snap.diagnosticDoneAt,
       });
       void sync();
     });
@@ -148,11 +215,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     const snap = await loadSnapshot(accountId);
     setState((s) => ({ ...s, profile: linked, stats: snap.stats,
       lessons: Object.fromEntries(snap.lessons.map((l) => [l.lessonId, l])),
-      skills: Object.fromEntries(snap.skills.map((entry) => [entry.skill, entry])), pending: snap.pending }));
+      skills: Object.fromEntries(snap.skills.map((entry) => [entry.skill, entry])), pending: snap.pending,
+      answers: snap.answers, mastery: computeMastery(snap.answers), diagnosticDoneAt: snap.diagnosticDoneAt }));
   }, [accountId]);
 
   const completeLesson = useCallback(
-    async ({ lessonId, answers }: LessonResultInput): Promise<LessonOutcome> => {
+    async ({ lessonId, records }: LessonResultInput): Promise<LessonOutcome> => {
+      const answers = records.map((r) => ({ skill: r.skill, correct: r.correct }));
       const correct = answers.filter((a) => a.correct).length;
       const total = answers.length;
       const stars = starsFor(correct, total);
@@ -160,14 +229,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       const xpEarned = correct * XP_PER_CORRECT + (passed ? XP_LESSON_BONUS : 0);
 
       const prevStats = state.stats;
-      const today = dayKey();
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      let streak = prevStats.streak;
-      if (prevStats.lastActiveDay !== today) {
-        streak = prevStats.lastActiveDay === dayKey(yesterday) ? streak + 1 : 1;
-      }
-      const stats: Stats = { xp: prevStats.xp + xpEarned, streak, lastActiveDay: today };
+      const stats = nextStats(prevStats, xpEarned);
+      const allAnswers = [...state.answers, ...records];
+      const mastery = computeMastery(allAnswers);
 
       const prevLesson = state.lessons[lessonId];
       const lesson: LessonProgress = {
@@ -193,6 +257,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         skillResults: answers,
         createdAt: new Date().toISOString(),
       });
+      await saveLearning(accountId, records, Object.values(mastery));
 
       setState((s) => ({
         ...s,
@@ -200,6 +265,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lessons: { ...s.lessons, [lessonId]: lesson },
         skills: skillMap,
         pending: s.pending + 1,
+        answers: allAnswers,
+        mastery,
       }));
       void sync();
 
@@ -213,7 +280,42 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [state, sync, accountId],
   );
 
-  const value = useMemo(() => ({ ...state, saveProfile, completeLesson, sync }), [state, saveProfile, completeLesson, sync]);
+  const recordSession = useCallback(
+    async (kind: Exclude<SessionKind, 'LECCION'>, records: AnswerRecord[]): Promise<SessionOutcome> => {
+      const correct = records.filter((r) => r.correct).length;
+      const xpEarned =
+        kind === 'DIAGNOSTICO'
+          ? XP_DIAGNOSTIC
+          : correct * XP_PER_CORRECT + (correct >= records.length * 0.75 ? XP_LESSON_BONUS : 0);
+      const stats = nextStats(state.stats, xpEarned);
+      const allAnswers = [...state.answers, ...records];
+      const mastery = computeMastery(allAnswers);
+      const diagnosticDoneAt = kind === 'DIAGNOSTICO' ? new Date().toISOString() : undefined;
+
+      await saveLearning(accountId, records, Object.values(mastery), { stats, diagnosticDoneAt });
+      setState((s) => ({
+        ...s,
+        stats,
+        answers: allAnswers,
+        mastery,
+        diagnosticDoneAt: diagnosticDoneAt ?? s.diagnosticDoneAt,
+      }));
+      void sync();
+
+      return {
+        xpEarned,
+        leveledUp: levelFor(stats.xp).level > levelFor(state.stats.xp).level,
+        before: state.mastery,
+        after: mastery,
+      };
+    },
+    [state, sync, accountId],
+  );
+
+  const value = useMemo(
+    () => ({ ...state, saveProfile, completeLesson, recordSession, sync }),
+    [state, saveProfile, completeLesson, recordSession, sync],
+  );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }

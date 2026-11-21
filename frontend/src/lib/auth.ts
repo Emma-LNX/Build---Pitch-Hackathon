@@ -10,9 +10,12 @@ export function authClient() {
       config = await response.json();
       localStorage.setItem('math-portal-auth-config', JSON.stringify(config));
     } catch {
+      const url = import.meta.env.VITE_SUPABASE_URL?.trim();
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
       const cached = localStorage.getItem('math-portal-auth-config');
-      if (!cached) throw new Error('No se pudo conectar. Revisa la configuración de Supabase e inténtalo de nuevo.');
-      config = JSON.parse(cached);
+      if (url && key) config = { url, publishableKey: key };
+      else if (cached) config = JSON.parse(cached);
+      else throw new Error('No se pudo conectar. Revisa la configuración de Supabase e inténtalo de nuevo.');
     }
     return createClient(config.url, config.publishableKey);
   })().catch((error) => { client = undefined; throw error; });

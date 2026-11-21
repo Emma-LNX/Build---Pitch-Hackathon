@@ -25,12 +25,14 @@ export async function importLegacyProfile(accountId: string, linked: Profile) {
     const destination = await getDB(accountId);
     const stats = await source.get('meta', 'stats');
     if (stats) await destination.put('meta', stats, 'stats');
-    for (const store of ['lessons', 'skills', 'outbox'] as const) {
+    for (const store of ['lessons', 'skills', 'outbox', 'answers', 'mastery'] as const) {
       if (!source.objectStoreNames.contains(store)) continue;
       for (const item of await source.getAll(store)) {
         await destination.put(store, store === 'outbox' ? { ...item, studentId: linked.studentId } : item);
       }
     }
+    const diagnostic = await source.get('meta', 'diagnostic');
+    if (diagnostic) await destination.put('meta', diagnostic, 'diagnostic');
     if (source.objectStoreNames.contains('dailyCheckIns')) {
       for (const entry of await source.getAll('dailyCheckIns')) {
         if (entry.studentId === original.studentId) {

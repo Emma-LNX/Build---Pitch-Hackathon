@@ -832,3 +832,270 @@ img, svg { display: block; }
   .question-prompt { font-size: 1.35rem; }
   .game-badge-shield { width: 76px; }
 }
+
+/* ---------- Aprendizaje adaptativo ---------- */
+.mission-fab {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 18px 6px 12px;
+  background: var(--oro);
+  border: var(--line) solid var(--tinta);
+  border-radius: 999px;
+  box-shadow: inset 0 -5px 0 #d9a52f, 0 5px 0 var(--tinta);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+.mission-fab:active { transform: translateY(4px); box-shadow: inset 0 -2px 0 #d9a52f, 0 1px 0 var(--tinta); }
+.mission-fab-new { animation: bob 1.6s ease-in-out infinite; }
+.mission-fab-icon { width: 28px; height: 28px; }
+
+.adaptive-page { justify-content: center; gap: 18px; padding: 20px 16px; background: var(--cielo); }
+.adaptive-card { display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.adaptive-card .mastery-list { text-align: left; }
+.adaptive-intro p { font-size: 1.15rem; margin: 0; }
+.adaptive-cta { margin-top: 12px; text-decoration: none; display: grid; place-items: center; }
+.adaptive-redo { display: inline-block; margin-top: 12px; font-weight: 700; }
+
+.mastery-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.mastery-row { display: flex; align-items: center; gap: 10px; }
+.mastery-level {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 1.3rem;
+}
+.mastery-level-art { width: 34px; max-height: 38px; }
+.mastery-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mastery-info strong { font-size: 1.02rem; line-height: 1.15; }
+.mastery-name { font-weight: 800; white-space: nowrap; }
+.mastery-up { color: var(--cesped-borde); font-weight: 800; }
+.mastery-down { color: var(--error); font-weight: 800; }
+.mastery-row .practice-go { flex: none; text-decoration: none; }
+
+.error-tips { margin-top: 14px; padding: 10px 12px; background: #fff; border: 2.5px dashed var(--tinta); border-radius: 16px; }
+.error-tips h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.error-tips ul { margin: 0; padding-left: 20px; }
+
+.feedback-soft { background: var(--papel-calido); }
+.feedback-soft .feedback-icon { background: var(--nivel); }
+.option-soft, .option-soft[aria-checked='true'] {
+  background: var(--papel-calido);
+  color: var(--tinta);
+  text-shadow: none;
+  box-shadow: inset 0 -5px 0 #f0d9a0, 0 5px 0 var(--tinta);
+}
+.feedback-maya { display: inline-flex; align-items: center; gap: 10px; }
+.feedback-maya-art { width: 34px; max-height: 70px; }
+
+.number-pad { display: flex; flex-direction: column; gap: 12px; }
+.number-display {
+  display: grid;
+  place-items: center;
+  min-height: 64px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 18px;
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.number-placeholder { color: var(--bloqueado); }
+.number-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.number-key {
+  min-height: 56px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 16px;
+  box-shadow: inset 0 -5px 0 #e3ecf0, 0 4px 0 var(--tinta);
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+.number-key:active:not(:disabled) { transform: translateY(3px); box-shadow: inset 0 -2px 0 #e3ecf0, 0 1px 0 var(--tinta); }
+.number-key-action { background: var(--papel-calido); }
+
+.maya-builder { display: flex; flex-direction: column; gap: 10px; }
+.maya-level {
+  display: grid;
+  grid-template-columns: 52px 86px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 18px;
+}
+.maya-place { font-weight: 800; color: var(--tinta-suave); }
+.maya-slot { display: grid; place-items: center; min-height: 64px; background: var(--papel-calido); border-radius: 12px; }
+.maya-slot-art { width: 64px; max-height: 84px; }
+.maya-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.maya-btn {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  background: var(--papel);
+  border: var(--line) solid var(--tinta);
+  border-radius: 14px;
+  box-shadow: 0 4px 0 var(--tinta);
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+.maya-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--tinta); }
+.maya-btn:disabled { opacity: .45; }
+.maya-btn-clear { background: var(--oro); }
+.maya-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--tinta); }
+.maya-bar { width: 30px; height: 10px; border-radius: 5px; background: var(--tinta); }
+.maya-hint { text-align: center; }
+
+/* ---------------- Minijuegos ---------------- */
+.game { display: flex; flex-direction: column; gap: 12px; }
+.game-total { text-align: center; font-size: 1.15rem; margin: 0; }
+.game-hint { text-align: center; margin: 0; }
+
+.money-btn { padding: 0; background: none; border: 0; }
+.money-btn:active:not(:disabled) { transform: translateY(3px); }
+.money {
+  display: inline-grid;
+  place-items: center;
+  min-width: 74px;
+  height: 44px;
+  padding: 0 10px;
+  border: var(--line) solid var(--tinta);
+  border-radius: 10px;
+  box-shadow: 0 4px 0 var(--tinta);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--tinta);
+  background: #cfe9c1;
+}
+.money-coin { min-width: 52px; width: 52px; height: 52px; border-radius: 50%; background: var(--oro); }
+.money-5 { background: #d7c4ef; }
+.money-10 { background: #f6b9a8; }
+.money-20 { background: #b9dcf5; }
+.money-50 { background: #ffd79a; }
+.money-100 { background: #e6c9a8; }
+.money-small { min-width: 54px; height: 34px; font-size: 0.9rem; box-shadow: 0 2px 0 var(--tinta); }
+.money-small.money-coin { min-width: 38px; width: 38px; height: 38px; }
+.coins-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 96px;
+  padding: 12px;
+  background: var(--papel-calido);
+  border: var(--line) dashed var(--tinta-suave);
+  border-radius: 18px;
+}
+.coins-bank { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+
+.tortilla { width: min(260px, 70vw); align-self: center; filter: drop-shadow(0 5px 0 var(--tinta)); }
+.slice { fill: #f3dc9b; stroke: var(--tinta); stroke-width: 3; cursor: pointer; transition: fill 0.15s; }
+.slice-on { fill: #e0793f; }
+.slice:focus-visible { outline: none; fill: #f7c873; }
+
+.blocks-board { display: grid; gap: 8px; }
+.blocks-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 16px;
+}
+.blocks-name { font-weight: 800; font-size: 0.8rem; color: var(--tinta-suave); }
+.blocks-stack {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  align-content: flex-start;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 92px;
+}
+.block { display: block; border: 2px solid var(--tinta); }
+.block-1000 { width: 26px; height: 26px; background: #9b7fd1; border-radius: 4px; box-shadow: 3px -3px 0 #6d54a3; }
+.block-100 { width: 24px; height: 24px; background: var(--nivel); border-radius: 3px; }
+.block-10 { width: 8px; height: 26px; background: var(--cesped); border-radius: 2px; }
+.block-1 { width: 10px; height: 10px; background: var(--oro); border-radius: 2px; }
+.blocks-count { font-size: 1.4rem; }
+.blocks-btns { display: flex; gap: 6px; }
+.blocks-btns .maya-btn { width: 40px; height: 40px; }
+
+.order-slots { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.order-slot-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.order-sep { font-weight: 800; font-size: 1.4rem; color: var(--tinta-suave); }
+.order-slot {
+  min-width: 70px;
+  height: 52px;
+  padding: 0 8px;
+  background: var(--papel-calido);
+  border: var(--line) dashed var(--tinta-suave);
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+}
+.order-slot-full { background: var(--acierto-fondo); border-style: solid; border-color: var(--tinta); color: var(--tinta); }
+.order-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; min-height: 64px; }
+.order-card {
+  min-width: 84px;
+  height: 58px;
+  padding: 0 12px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 14px;
+  box-shadow: 0 5px 0 var(--tinta);
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+.order-card:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--tinta); }
+
+/* ---------------- Vista del profesor ---------------- */
+.teacher-page { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 640px; margin: 0 auto; padding: 16px 16px 32px; }
+.teacher-page .lesson-header { padding: 0; }
+.teacher-title { margin: 0; font-size: 1.5rem; }
+.teacher-title + .hint { margin: 0; }
+.teacher-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.teacher-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--tinta);
+}
+.teacher-stat strong { font-size: 1.6rem; line-height: 1.2; }
+.teacher-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.teacher-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.teacher-cats li { display: flex; flex-direction: column; gap: 4px; }
+.teacher-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.teacher-recent li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 2px solid #e3ecf0;
+  border-radius: 12px;
+}
+.teacher-ok { color: var(--cesped-borde); font-weight: 800; }
+.teacher-bad { color: var(--error); font-weight: 800; }
+.teacher-error { display: block; color: var(--error); }
+.teacher-note { text-align: center; }
