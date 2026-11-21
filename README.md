@@ -1,6 +1,6 @@
 # Portal de repaso de matemáticas
 
-Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. La experiencia de práctica offline está pendiente.
+Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. Incluye [aulas por escuela, grado, sección y ciclo](docs/classrooms.md), con profesor y matrícula de estudiantes, y [estadísticas del profesor](docs/teachers.md) basadas en partidas. La experiencia de práctica offline está pendiente.
 
 ```text
 .
@@ -28,7 +28,7 @@ Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC
 │       │   ├── java/com/hackathon/mathportal/
 │       │   │   ├── config/
 │       │   │   ├── common/exception/
-│       │   │   └── modules/{auth,directors,schools,courses,topics,exercises,progress}/
+│       │   │   └── modules/{auth,directors,schools,classrooms,teachers,students,courses,topics,exercises,progress,Estadistica}/
 │       │   └── resources/db/migration/
 │       └── test/java/com/hackathon/mathportal/
 ├── docs/                       # Arquitectura y decisiones offline

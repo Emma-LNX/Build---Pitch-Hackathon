@@ -1,6 +1,7 @@
 package com.hackathon.mathportal.config;
 
 import java.time.Instant;
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,13 +21,18 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
     @Bean
+    Clock clock() { return Clock.systemUTC(); }
+
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(requests -> requests
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/actuator/health").permitAll()
-                .requestMatchers("/schools", "/schools/**", "/directors/**").authenticated()
+                .requestMatchers("/schools", "/schools/**", "/directors/**", "/students/**",
+                    "/activities/**", "/activity-versions/**", "/topics/**", "/attempts/**", "/progress/**",
+                    "/gamification/**", "/levels/**", "/ranking/**").authenticated()
                 .anyRequest().denyAll())
             .oauth2ResourceServer(resource -> resource.jwt(Customizer.withDefaults()))
             .build();

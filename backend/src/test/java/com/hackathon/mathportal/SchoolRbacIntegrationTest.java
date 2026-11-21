@@ -38,7 +38,7 @@ import org.springframework.test.web.servlet.MockMvc;
     "spring.datasource.url=jdbc:h2:mem:rbac;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.username=sa", "spring.datasource.password=",
-    "spring.flyway.target=1"
+    "spring.flyway.target=1", "spring.jpa.hibernate.ddl-auto=none"
 })
 @AutoConfigureMockMvc
 @Import(RbacTestDatabaseConfig.class)
@@ -78,6 +78,14 @@ class SchoolRbacIntegrationTest {
 
     @BeforeEach
     void fixtures() {
+        jdbc.update("DELETE FROM math_portal.teacher_focus_topics");
+        jdbc.update("DELETE FROM math_portal.partidas");
+        jdbc.update("DELETE FROM math_portal.actividad_versiones");
+        jdbc.update("DELETE FROM math_portal.actividades");
+        jdbc.update("DELETE FROM math_portal.temas");
+        jdbc.update("DELETE FROM math_portal.alumnos");
+        jdbc.update("DELETE FROM math_portal.classroom_students");
+        jdbc.update("DELETE FROM math_portal.classrooms");
         jdbc.update("DELETE FROM math_portal.school_directors");
         jdbc.update("DELETE FROM math_portal.director_accounts");
         jdbc.update("DELETE FROM auth.users");
@@ -391,7 +399,257 @@ class SchoolRbacIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
-private void owner(UUID user, UUID school) {
+    @Test
+    void classroomCreationValidatesGradeSectionYearTeacherAndDuplicates() throws Exception {
+        owner(id(41), SCHOOL_A);
+        String url = classroomsPath(SCHOOL_A), bearer = token(id(41));
+        String body = roomBody("  Primero   basico ", " a ", 2026, TEACHER_A);
+        mvc.perform(post(url).contextPath("/api").header("Authorization", bearer).contentType("application/json").content(body))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.grade").value("PRIMERO BASICO"))
+            .andExpect(jsonPath("$.section").value("A")).andExpect(jsonPath("$.academicYear").value(2026))
+            .andExpect(jsonPath("$.teacherId").value(TEACHER_A.toString())).andExpect(jsonPath("$.studentCount").value(0))
+            .andExpect(jsonPath("$.createdAt").exists());
+        mvc.perform(post(url).contextPath("/api").header("Authorization", bearer).contentType("application/json").content(body))
+            .andExpect(status().isConflict());
+        for (UUID teacher : new UUID[] {STUDENT_A, TEACHER_B}) {
+            mvc.perform(post(url).contextPath("/api").header("Authorization", bearer).contentType("application/json")
+                .content(roomBody("SEGUNDO", "A", 2026, teacher))).andExpect(status().isNotFound());
+        }
+        mvc.perform(post(url).contextPath("/api").header("Authorization", bearer).contentType("application/json")
+            .content(roomBody("SEGUNDO", "A", 0, TEACHER_A))).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/schools/" + SCHOOL_A + "/statistics").contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.classrooms").value(1));
+    }
+
+    @Test
+    void classroomsHideOtherGroupsAndProtectStudentRoster() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        room(id(62), SCHOOL_A, MULTI, "PRIMERO", "B", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        for (UUID actor : new UUID[] {TEACHER_A, STUDENT_A}) {
+            mvc.perform(get(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+            mvc.perform(get(classroomsPath(SCHOOL_A) + "/" + id(62)).contextPath("/api").header("Authorization", token(actor)))
+                .andExpect(status().isNotFound());
+        }
+        mvc.perform(get(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(id(41))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(get(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(TEACHER_B)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get(classroomsPath(SCHOOL_A) + "/" + id(61) + "/students").contextPath("/api").header("Authorization", token(TEACHER_A)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].email").value("student-a@example.com"));
+        mvc.perform(get(classroomsPath(SCHOOL_A) + "/" + id(61) + "/students").contextPath("/api").header("Authorization", token(STUDENT_A)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get(classroomsPath(SCHOOL_A)).param("academicYear", "2027").contextPath("/api").header("Authorization", token(TEACHER_A)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void classroomManagementIsRestrictedToSchoolDirector() throws Exception {
+        owner(id(41), SCHOOL_A); owner(id(42), SCHOOL_B);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        for (UUID actor : new UUID[] {TEACHER_A, STUDENT_A, id(42)}) {
+            mvc.perform(post(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(actor))
+                .contentType("application/json").content(roomBody("SEGUNDO", "A", 2026, TEACHER_A))).andExpect(status().isNotFound());
+            mvc.perform(put(classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A)
+                .contextPath("/api").header("Authorization", token(actor))).andExpect(status().isNotFound());
+            mvc.perform(delete(classroomsPath(SCHOOL_A) + "/" + id(61)).contextPath("/api").header("Authorization", token(actor)))
+                .andExpect(status().isNotFound());
+        }
+        mvc.perform(get(classroomsPath(SCHOOL_A)).contextPath("/api")).andExpect(status().isUnauthorized());
+        mvc.perform(delete(classroomsPath(SCHOOL_B) + "/" + id(61)).contextPath("/api").header("Authorization", token(id(42))))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void enrollmentIsIdempotentAndUniquePerSchoolYear() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        room(id(62), SCHOOL_A, TEACHER_A, "PRIMERO", "B", 2026);
+        room(id(63), SCHOOL_A, TEACHER_A, "SEGUNDO", "A", 2027);
+        String base = classroomsPath(SCHOOL_A), bearer = token(id(41));
+        for (int i = 0; i < 2; i++) mvc.perform(put(base + "/" + id(61) + "/students/" + STUDENT_A)
+            .contextPath("/api").header("Authorization", bearer)).andExpect(status().isNoContent());
+        for (UUID invalid : new UUID[] {TEACHER_A, TEACHER_B, MULTI}) mvc.perform(put(base + "/" + id(61) + "/students/" + invalid)
+            .contextPath("/api").header("Authorization", bearer)).andExpect(status().isNotFound());
+        mvc.perform(put(base + "/" + id(62) + "/students/" + STUDENT_A).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isConflict());
+        mvc.perform(put(base + "/" + id(63) + "/students/" + STUDENT_A).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isNoContent());
+        mvc.perform(get(base + "/" + id(61)).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.studentCount").value(1));
+    }
+
+    @Test
+    void transferCannotCrossSchoolOrYearAndNeverLosesOriginalEnrollment() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        room(id(62), SCHOOL_A, TEACHER_A, "PRIMERO", "B", 2026);
+        room(id(63), SCHOOL_A, TEACHER_A, "SEGUNDO", "A", 2027);
+        room(id(64), SCHOOL_B, TEACHER_B, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        String url = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A + "/transfer";
+        mvc.perform(post(url).contextPath("/api").header("Authorization", token(id(41))).contentType("application/json")
+            .content("{\"targetClassroomId\":\"" + id(64) + "\"}")).andExpect(status().isNotFound());
+        mvc.perform(post(url).contextPath("/api").header("Authorization", token(id(41))).contentType("application/json")
+            .content("{\"targetClassroomId\":\"" + id(63) + "\"}")).andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT classroom_id FROM math_portal.classroom_students WHERE student_id = ?", UUID.class, STUDENT_A)).isEqualTo(id(61));
+        mvc.perform(post(url).contextPath("/api").header("Authorization", token(id(41))).contentType("application/json")
+            .content("{\"targetClassroomId\":\"" + id(62) + "\"}")).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT classroom_id FROM math_portal.classroom_students WHERE student_id = ?", UUID.class, STUDENT_A)).isEqualTo(id(62));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM math_portal.classroom_students", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void classroomTeacherMustBeReassignedBeforeLeavingSchool() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        mvc.perform(delete("/api/schools/" + SCHOOL_A + "/members/" + TEACHER_A).contextPath("/api").header("Authorization", token(id(41))))
+            .andExpect(status().isConflict());
+        mvc.perform(put(classroomsPath(SCHOOL_A) + "/" + id(61)).contextPath("/api").header("Authorization", token(id(41)))
+            .contentType("application/json").content("{\"grade\":\"Primero\",\"section\":\"B\",\"teacherId\":\"" + MULTI + "\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.teacherId").value(MULTI.toString())).andExpect(jsonPath("$.studentCount").value(1));
+        mvc.perform(get(classroomsPath(SCHOOL_A) + "/" + id(61)).contextPath("/api").header("Authorization", token(TEACHER_A)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get(classroomsPath(SCHOOL_A) + "/" + id(61) + "/students").contextPath("/api").header("Authorization", token(MULTI)))
+            .andExpect(status().isOk());
+        mvc.perform(delete("/api/schools/" + SCHOOL_A + "/members/" + TEACHER_A).contextPath("/api").header("Authorization", token(id(41))))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deletingClassroomRequiresEmptyRosterAndPreservesAccounts() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        String url = classroomsPath(SCHOOL_A) + "/" + id(61), bearer = token(id(41));
+        mvc.perform(delete(url).contextPath("/api").header("Authorization", bearer)).andExpect(status().isConflict());
+        mvc.perform(delete(url + "/students/" + STUDENT_A).contextPath("/api").header("Authorization", bearer)).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM auth.users WHERE id = ?", Integer.class, STUDENT_A)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM math_portal.school_memberships WHERE school_id = ? AND user_id = ?", Integer.class, SCHOOL_A, STUDENT_A)).isEqualTo(1);
+        mvc.perform(delete(url).contextPath("/api").header("Authorization", bearer)).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void schoolRemovalCascadesClassroomEnrollmentButKeepsClassroom() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        mvc.perform(delete("/api/schools/" + SCHOOL_A + "/members/" + STUDENT_A).contextPath("/api").header("Authorization", token(id(41))))
+            .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM math_portal.classroom_students", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM math_portal.classrooms", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void classroomForeignKeysRejectCrossSchoolRolesAndMismatchedYear() {
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        assertThatThrownBy(() -> room(id(62), SCHOOL_A, TEACHER_B, "PRIMERO", "B", 2026)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> room(id(62), SCHOOL_A, STUDENT_A, "PRIMERO", "B", 2026)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> enrollRoom(SCHOOL_A, id(61), 2027, STUDENT_A)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> enrollRoom(SCHOOL_B, id(61), 2026, MULTI)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> enrollRoom(SCHOOL_A, id(61), 2026, TEACHER_A)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void teacherReadsRealClassroomProgressAndSelectsDifficultTopic() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        sampleAttempts();
+        String base = classroomsPath(SCHOOL_A) + "/" + id(61);
+        String progress = base + "/students/" + STUDENT_A + "/progress";
+        String focus = base + "/students/" + STUDENT_A + "/difficult-topics/" + id(71);
+        String bearer = token(TEACHER_A);
+
+        mvc.perform(get("/api/schools/" + SCHOOL_A + "/teachers/me").contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.userId").value(TEACHER_A.toString()))
+            .andExpect(jsonPath("$.classrooms[0].id").value(id(61).toString()));
+        mvc.perform(get(base + "/statistics").contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.students").value(1))
+            .andExpect(jsonPath("$.activeStudents").value(1))
+            .andExpect(jsonPath("$.statistics.attempts").value(2))
+            .andExpect(jsonPath("$.statistics.passPercentage").value(50.0))
+            .andExpect(jsonPath("$.statistics.averageScore").value(75.0));
+        mvc.perform(get(progress).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.alias").value("Ana"))
+            .andExpect(jsonPath("$.topics[0].attempts").value(2))
+            .andExpect(jsonPath("$.topics[0].difficult").value(false));
+        mvc.perform(put(focus).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.topics[0].difficult").value(true));
+        mvc.perform(put(focus).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk());
+        mvc.perform(delete(focus).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isNoContent());
+        mvc.perform(get(progress).contextPath("/api").header("Authorization", bearer))
+            .andExpect(jsonPath("$.topics[0].difficult").value(false));
+    }
+
+    @Test
+    void teacherCannotReadAnotherClassroomOrMarkUnattemptedTopic() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        sampleAttempts();
+        jdbc.update("INSERT INTO math_portal.temas VALUES (?, ?, ?)", id(74), "Geometria", true);
+        String base = classroomsPath(SCHOOL_A) + "/" + id(61);
+        for (UUID actor : new UUID[] {TEACHER_B, MULTI, STUDENT_A, id(41)}) {
+            mvc.perform(get(base + "/statistics").contextPath("/api").header("Authorization", token(actor)))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(base + "/students/" + STUDENT_A + "/progress").contextPath("/api").header("Authorization", token(actor)))
+                .andExpect(status().isNotFound());
+            mvc.perform(put(base + "/students/" + STUDENT_A + "/difficult-topics/" + id(71))
+                .contextPath("/api").header("Authorization", token(actor))).andExpect(status().isNotFound());
+        }
+        mvc.perform(put(base + "/students/" + STUDENT_A + "/difficult-topics/" + id(74))
+            .contextPath("/api").header("Authorization", token(TEACHER_A))).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM math_portal.teacher_focus_topics", Integer.class)).isZero();
+    }
+
+    @Test
+    void difficultTopicFollowsStudentTransferAndNewTeacher() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        room(id(62), SCHOOL_A, MULTI, "PRIMERO", "B", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        sampleAttempts();
+        String first = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A;
+        String second = classroomsPath(SCHOOL_A) + "/" + id(62) + "/students/" + STUDENT_A;
+        mvc.perform(put(first + "/difficult-topics/" + id(71)).contextPath("/api")
+            .header("Authorization", token(TEACHER_A))).andExpect(status().isOk());
+        mvc.perform(post(first + "/transfer").contextPath("/api").header("Authorization", token(id(41)))
+            .contentType("application/json").content("{\"targetClassroomId\":\"" + id(62) + "\"}"))
+            .andExpect(status().isNoContent());
+        mvc.perform(get(first + "/progress").contextPath("/api").header("Authorization", token(TEACHER_A)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get(second + "/progress").contextPath("/api").header("Authorization", token(MULTI)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.topics[0].difficult").value(true));
+        assertThat(jdbc.queryForObject("SELECT classroom_id FROM math_portal.teacher_focus_topics", UUID.class)).isEqualTo(id(62));
+    }
+
+    private void sampleAttempts() {
+        jdbc.update("INSERT INTO math_portal.alumnos VALUES (?, ?, ?, ?)", id(70), STUDENT_A.toString(), "Ana", "ACTIVO");
+        jdbc.update("INSERT INTO math_portal.temas VALUES (?, ?, ?)", id(71), "Sumas", true);
+        jdbc.update("INSERT INTO math_portal.actividades VALUES (?, ?)", id(72), id(71));
+        jdbc.update("INSERT INTO math_portal.actividad_versiones VALUES (?, ?)", id(73), id(72));
+        jdbc.update("INSERT INTO math_portal.partidas VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)",
+            id(81), id(70), id(73), 100, true, java.time.OffsetDateTime.now(),
+            id(82), id(70), id(73), 50, false, java.time.OffsetDateTime.now());
+    }
+
+    private void room(UUID classroom, UUID school, UUID teacher, String grade, String section, int year) {
+        jdbc.update("INSERT INTO math_portal.classrooms (id, school_id, teacher_id, grade, section, academic_year) VALUES (?, ?, ?, ?, ?, ?)", classroom, school, teacher, grade, section, year);
+    }
+    private void enrollRoom(UUID school, UUID classroom, int year, UUID student) {
+        jdbc.update("INSERT INTO math_portal.classroom_students (school_id, classroom_id, academic_year, student_id) VALUES (?, ?, ?, ?)", school, classroom, year, student);
+    }
+    private String classroomsPath(UUID school) { return "/api/schools/" + school + "/classrooms"; }
+    private String roomBody(String grade, String section, int year, UUID teacher) {
+        return "{\"grade\":\"" + grade + "\",\"section\":\"" + section + "\",\"academicYear\":" + year + ",\"teacherId\":\"" + teacher + "\"}";
+    }
+    private void owner(UUID user, UUID school) {
         jdbc.update("INSERT INTO math_portal.director_accounts (user_id, name) VALUES (?, ?)", user, "Director");
         jdbc.update("INSERT INTO math_portal.school_directors VALUES (?, ?)", school, user);
     }

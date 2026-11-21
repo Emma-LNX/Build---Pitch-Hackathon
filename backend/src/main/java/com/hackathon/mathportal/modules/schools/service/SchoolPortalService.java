@@ -8,7 +8,7 @@ import com.hackathon.mathportal.modules.courses.dto.CourseView;
 import com.hackathon.mathportal.modules.schools.dto.SchoolView;
 import com.hackathon.mathportal.modules.topics.dto.CreateTopicRequest;
 import com.hackathon.mathportal.modules.topics.dto.TopicView;
-import com.hackathon.mathportal.modules.topics.repository.TopicRepository;
+import com.hackathon.mathportal.modules.topics.repository.SchoolTopicRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +18,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class SchoolPortalService {
     private final MembershipRepository memberships;
-    private final TopicRepository topics;
+    private final SchoolTopicRepository topics;
 
-    public SchoolPortalService(MembershipRepository memberships, TopicRepository topics) {
+    public SchoolPortalService(MembershipRepository memberships, SchoolTopicRepository topics) {
         this.memberships = memberships;
         this.topics = topics;
     }

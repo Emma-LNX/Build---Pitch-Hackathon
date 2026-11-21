@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import com.hackathon.mathportal.modules.auth.dto.SchoolRole;
+import com.hackathon.mathportal.modules.auth.service.SchoolAdministrationAccess;
 import com.hackathon.mathportal.modules.courses.dto.CourseView;
 import com.hackathon.mathportal.modules.schools.dto.SchoolView;
 import com.hackathon.mathportal.modules.directors.dto.DirectorDtos.*;
@@ -17,7 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional
 public class DirectorService {
     private final JdbcTemplate jdbc;
-    public DirectorService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private final SchoolAdministrationAccess access;
+    public DirectorService(JdbcTemplate jdbc, SchoolAdministrationAccess access) { this.jdbc = jdbc; this.access = access; }
 
     public DirectorProfile register(UUID actor, RegisterDirector request) {
         String email = verifiedEmail(actor);
@@ -66,6 +68,9 @@ public class DirectorService {
 
     public void removeMember(UUID actor, UUID school, UUID user) {
         requireOwner(actor, school);
+        if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM math_portal.classrooms WHERE school_id = ? AND teacher_id = ?)", Boolean.class, school, user))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Reasigna las aulas del profesor antes de retirarlo del colegio");
+        }
         if (jdbc.update("DELETE FROM math_portal.school_memberships WHERE school_id = ? AND user_id = ?", school, user) == 0) throw notFound();
     }
 
@@ -113,26 +118,18 @@ public class DirectorService {
             (SELECT COUNT(*) FROM math_portal.school_memberships WHERE school_id = ? AND role = 'PROFESOR') AS professors,
             (SELECT COUNT(*) FROM math_portal.school_memberships WHERE school_id = ? AND role = 'ALUMNO') AS students,
             (SELECT COUNT(*) FROM math_portal.courses WHERE school_id = ?) AS courses,
-            (SELECT COUNT(*) FROM math_portal.topics WHERE school_id = ?) AS topics
-            """, (rs, row) -> new Statistics(rs.getInt("professors"), rs.getInt("students"), rs.getInt("courses"), rs.getInt("topics")), school, school, school, school);
+            (SELECT COUNT(*) FROM math_portal.topics WHERE school_id = ?) AS topics,
+            (SELECT COUNT(*) FROM math_portal.classrooms WHERE school_id = ?) AS classrooms
+            """, (rs, row) -> new Statistics(rs.getInt("professors"), rs.getInt("students"), rs.getInt("courses"), rs.getInt("topics"), rs.getInt("classrooms")), school, school, school, school, school);
     }
 
-    private void requireOwner(UUID actor, UUID school) {
-        verifiedEmail(actor);
-        // Serialize administration with ownership changes in the same school.
-        if (jdbc.query("SELECT school_id FROM math_portal.school_directors WHERE school_id = ? AND user_id = ? FOR UPDATE",
-            (rs, row) -> rs.getObject(1, UUID.class), school, actor).isEmpty()) throw notFound();
-    }
+    private void requireOwner(UUID actor, UUID school) { access.requireDirector(actor, school); }
 
     private void requireCourse(UUID school, UUID course) {
         if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM math_portal.courses WHERE school_id = ? AND id = ?)", Boolean.class, school, course))) throw notFound();
     }
 
-    private String verifiedEmail(UUID actor) {
-        return jdbc.query("SELECT email FROM auth.users WHERE id = ? AND email IS NOT NULL AND email_confirmed_at IS NOT NULL",
-            (rs, row) -> rs.getString("email"), actor).stream().findFirst()
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Confirma tu correo antes de continuar"));
-    }
+    private String verifiedEmail(UUID actor) { return access.verifiedEmail(actor); }
 
     private List<DirectorProfile> profileRows(UUID actor, String email) {
         return jdbc.query("SELECT name FROM math_portal.director_accounts WHERE user_id = ?",

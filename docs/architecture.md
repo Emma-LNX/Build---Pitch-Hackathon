@@ -10,4 +10,8 @@ Flyway es el propietario de las migraciones en `backend/src/main/resources/db/mi
 
 Solo la salud del backend es pública. El director confirmado puede crear su propio colegio, administrar sus miembros, cursos y asignaciones y consultar estadísticas. V3 define los perfiles y la propiedad de colegios; V4 protege las tablas nuevas. Hay tres roles: DIRECTOR, PROFESOR y ALUMNO.
 
-El frontend lo desarrolla otro integrante del equipo. La integración debe registrar usuarios con Supabase Auth y enviar sus access tokens a la API. La práctica de ejercicios y la sincronización offline quedan pendientes. El esquema privado no se consulta directamente desde el navegador. Nunca publicar contraseñas JDBC ni claves service-role.
+El frontend lo desarrolla otro integrante del equipo. La integración debe registrar usuarios con Supabase Auth y enviar sus access tokens a la API. La API ya guarda partidas de ejercicios; la sincronización offline del cliente queda pendiente. El esquema privado no se consulta directamente desde el navegador. Nunca publicar contraseñas JDBC ni claves service-role.
+
+El módulo [classrooms](classrooms.md) organiza aulas por escuela, grado, sección y ciclo escolar, con un profesor y matrícula de alumnos. V5 crea el modelo y V6 protege sus tablas. Los cursos permanecen independientes. La autorización administrativa se comparte mediante SchoolAdministrationAccess dentro de transacciones Spring.
+
+El módulo [teachers](teachers.md) obtiene estadísticas desde las partidas del módulo de alumnos incorporado de `main`. Usa las fórmulas de `EstadisticasService` de Chou, pero calcula sobre datos persistidos y comprueba la asignación al aula antes de cada consulta. V7–V11 incorporan las partidas, protegen sus tablas y guardan los temas difíciles elegidos por el profesor.
