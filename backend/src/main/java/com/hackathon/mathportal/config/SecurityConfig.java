@@ -41,6 +41,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                .requestMatchers(HttpMethod.GET, "/auth/config").permitAll()
                 .requestMatchers("/schools", "/schools/**", "/directors/**", "/students/**",
                     "/activities/**", "/activity-versions/**", "/topics/**", "/attempts/**",
                     "/levels/**", "/ranking/**", "/estadisticas/**").authenticated()

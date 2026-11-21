@@ -129,6 +129,125 @@ class StudentApiIntegrationTest {
     }
 
     @Test
+    void dailyCheckInIsPrivateAndIdempotentAndDoesNotChangeXp() throws Exception {
+        createStudent("emily", false);
+        createStudent("ana", false);
+        call(get("/students/me/daily-check-in"), "emily")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.required").value(true))
+            .andExpect(jsonPath("$.date").value("2026-11-21"));
+        String body = "{\"sleepHours\":8.5,\"food\":\"SUFICIENTE\",\"mood\":\"TRANQUILO\"}";
+        for (int i = 0; i < 2; i++) {
+            call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON).content(body), "emily")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.sleepHours").value(8.5));
+        }
+        assertThat(count("registros_diarios")).isEqualTo(1);
+        call(get("/students/me/daily-check-in"), "emily")
+            .andExpect(jsonPath("$.required").value(false)).andExpect(jsonPath("$.checkIn.mood").value("TRANQUILO"));
+        call(get("/students/me/daily-check-in"), "ana").andExpect(jsonPath("$.required").value(true));
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+            .content(body.replace("8.5", "7")), "emily").andExpect(status().isConflict());
+        call(get("/students/me/progress"), "emily").andExpect(jsonPath("$.totalXp").value(0))
+            .andExpect(jsonPath("$.streak.current").value(0));
+    }
+
+    @Test
+    void dailyCheckInUsesStudentTimeZoneAtMidnight() throws Exception {
+        createStudent("emily", false);
+        String body = "{\"sleepHours\":0,\"food\":\"POCO\",\"mood\":\"CANSADO\"}";
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON).content(body), "emily")
+            .andExpect(status().isOk());
+        clock.set(Instant.parse("2026-11-22T05:59:59Z"));
+        call(get("/students/me/daily-check-in"), "emily").andExpect(jsonPath("$.required").value(false));
+        clock.set(Instant.parse("2026-11-22T06:00:00Z"));
+        call(get("/students/me/daily-check-in"), "emily").andExpect(jsonPath("$.required").value(true));
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON).content(body), "emily")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.date").value("2026-11-22"));
+        assertThat(count("registros_diarios")).isEqualTo(2);
+    }
+
+    @Test
+    void dailyCheckInValidatesAnswersAndSupportsDecliningEachQuestion() throws Exception {
+        createStudent("emily", false);
+        for (String hours : List.of("-1", "25", "8.55")) {
+            call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"sleepHours\":" + hours + ",\"food\":\"POCO\",\"mood\":\"TRISTE\"}"), "emily")
+                .andExpect(status().isBadRequest());
+        }
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"sleepHours\":8,\"food\":\"OTRO\",\"mood\":\"TRISTE\"}"), "emily")
+            .andExpect(status().isBadRequest());
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"sleepHours\":8}"), "emily").andExpect(status().isBadRequest());
+        assertThat(count("registros_diarios")).isZero();
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"sleepHours\":null,\"food\":\"PREFIERO_NO_RESPONDER\",\"mood\":\"PREFIERO_NO_RESPONDER\"}"), "emily")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.food").value("PREFIERO_NO_RESPONDER"));
+    }
+
+    @Test
+    void dailyCheckInRequiresActiveAuthenticatedStudentAndRejectsClientDates() throws Exception {
+        mvc.perform(get("/students/me/daily-check-in")).andExpect(status().isUnauthorized());
+        call(get("/students/me/daily-check-in"), "missing").andExpect(status().isNotFound());
+        createStudent("emily", false);
+        call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"date\":\"2020-01-01\",\"sleepHours\":8,\"food\":\"POCO\",\"mood\":\"FELIZ\"}"), "emily")
+            .andExpect(status().isBadRequest());
+        jdbc.update("UPDATE math_portal.alumnos SET estado='INACTIVO' WHERE auth_subject='emily'");
+        call(get("/students/me/daily-check-in"), "emily").andExpect(status().isForbidden());
+    }
+
+    @Test
+    void concurrentDailyCheckInsProduceOneEntry() throws Exception {
+        createStudent("emily", false);
+        String body = "{\"sleepHours\":8,\"food\":\"SUFICIENTE\",\"mood\":\"FELIZ\"}";
+        var gate = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Integer>> responses = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                responses.add(executor.submit(() -> {
+                    gate.await();
+                    return call(post("/students/me/daily-check-in").contentType(MediaType.APPLICATION_JSON)
+                        .content(body), "emily").andReturn().getResponse().getStatus();
+                }));
+            }
+            gate.countDown();
+            for (var response : responses) assertThat(response.get(20, TimeUnit.SECONDS)).isEqualTo(200);
+        }
+        assertThat(count("registros_diarios")).isEqualTo(1);
+    }
+
+    @Test
+    void offlineDailyCheckInsKeepOriginalDateAndFirstAnswerAcrossRetries() throws Exception {
+        createStudent("emily", false);
+        createStudent("ana", false);
+        String offline = "{\"date\":\"2026-11-19\",\"answers\":{\"sleepHours\":7,\"food\":\"POCO\",\"mood\":\"CANSADO\"}}";
+        for (int i = 0; i < 2; i++) {
+            call(post("/students/me/daily-check-in/sync").contentType(MediaType.APPLICATION_JSON).content(offline), "emily")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.date").value("2026-11-19"));
+        }
+        call(post("/students/me/daily-check-in/sync").contentType(MediaType.APPLICATION_JSON)
+            .content(offline.replace("CANSADO", "FELIZ")), "emily")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.mood").value("CANSADO"));
+        assertThat(count("registros_diarios")).isEqualTo(1);
+        call(get("/students/me/daily-check-in"), "emily").andExpect(jsonPath("$.required").value(true));
+        call(get("/students/me/daily-check-in"), "ana").andExpect(jsonPath("$.required").value(true));
+        assertThat(count("movimientos_puntos")).isZero();
+        assertThat(count("dias_aprendizaje")).isZero();
+    }
+
+    @Test
+    void offlineDailyCheckInsRejectFutureDatesAndInvalidAnswers() throws Exception {
+        createStudent("emily", false);
+        for (String payload : List.of(
+                "{\"date\":\"2026-11-22\",\"answers\":{\"sleepHours\":8,\"food\":\"POCO\",\"mood\":\"FELIZ\"}}",
+                "{\"date\":\"2026-11-19\",\"answers\":{\"sleepHours\":25,\"food\":\"POCO\",\"mood\":\"FELIZ\"}}")) {
+            call(post("/students/me/daily-check-in/sync").contentType(MediaType.APPLICATION_JSON).content(payload), "emily")
+                .andExpect(status().isBadRequest());
+        }
+        assertThat(count("registros_diarios")).isZero();
+    }
+
+    @Test
     void validatesProfileAndKeepsAccountsSeparate() throws Exception {
         createStudent("emily", false);
         createStudent("ana", false);

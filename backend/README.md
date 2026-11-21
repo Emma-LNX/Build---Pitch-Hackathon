@@ -1,5 +1,7 @@
 # Backend de alumnos
 
+El registro diario de sueño, alimentación y ánimo tiene sus [contratos y límites de integración](../docs/registro-diario.md). La migración V15 agrega una respuesta por alumno y día; consultar o responder se realiza en `/api/students/me/daily-check-in`.
+
 API de acompañamiento educativo con Java 21, Spring Boot, JPA y PostgreSQL. Implementa perfiles de alumnos, consulta de contenido versionado, partidas, XP, niveles, progreso, rachas y ranking. Las reglas de negocio están en [el contexto de alumnos](../docs/contexto-alumnos.md).
 
 ## Configuración y ejecución
@@ -21,7 +23,7 @@ mvn verify
 mvn spring-boot:run
 ```
 
-El servidor escucha en `http://localhost:8081/api`. `GET /api/actuator/health` es público; las demás rutas requieren `Authorization: Bearer <access_token>`. Flyway aplica las migraciones al iniciar la aplicación; JPA valida el esquema. No hace falta crear tablas a mano.
+El servidor escucha en `http://localhost:8081/api`. `GET /api/actuator/health` y `GET /api/auth/config` son públicos; la configuración devuelve solo URL y clave pública de Auth. Las demás rutas requieren `Authorization: Bearer <access_token>`. Flyway aplica las migraciones al iniciar la aplicación; JPA valida el esquema. No hace falta crear tablas a mano.
 
 Las migraciones crean las nueve tablas del dominio, los tres niveles iniciales y una actividad de sumas de opción múltiple con recompensa de 50 XP. Las versiones publicadas tienen un trigger que impide editarlas o eliminarlas; una corrección del contenido debe crear una versión nueva.
 
