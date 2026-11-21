@@ -33,6 +33,10 @@ Se usa Spring Security Resource Server para validar firma JWT, expiración, emis
 
 La identidad proviene del `sub` del token validado, nunca de un campo `studentId` ni de una cabecera inventada por el cliente. Las operaciones privadas resuelven exclusivamente al alumno autenticado. El ranking expone alias, nivel, XP y posición; nunca expone el identificador de autenticación.
 
+## Cuentas de estudiantes creadas por el profesor
+
+El profesor crea cuentas con usuario y contraseña desde el panel docente; el backend las registra en Supabase Auth con la Admin API (`SUPABASE_SERVICE_ROLE_KEY`, solo en el servidor) y el estudiante entra con `POST /auth/student/login`. Ver [cuentas de estudiantes](../docs/cuentas-estudiantes.md) para rutas, permisos, configuración y acceso sin conexión.
+
 ## Contratos HTTP
 
 Las rutas de esta tabla se agregan al prefijo `/api`. Las respuestas usan nombres de campos en inglés; las tablas conservan los nombres en español definidos en el contexto.

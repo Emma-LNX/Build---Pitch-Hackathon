@@ -41,9 +41,13 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                // Inicio y renovación de sesión: aún no hay token. La contraseña se valida en Supabase Auth.
+                .requestMatchers(HttpMethod.POST, "/auth/student/login", "/auth/staff/login", "/auth/refresh").permitAll()
                 .requestMatchers("/schools", "/schools/**", "/directors/**", "/students/**",
                     "/activities/**", "/activity-versions/**", "/topics/**", "/attempts/**",
-                    "/levels/**", "/ranking/**", "/estadisticas/**").authenticated()
+                    "/levels/**", "/ranking/**", "/estadisticas/**",
+                    // Cuentas de estudiantes creadas por el profesor y cierre de sesión
+                    "/teacher/**", "/auth/logout").authenticated()
                 .anyRequest().denyAll())
             .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
             .build();

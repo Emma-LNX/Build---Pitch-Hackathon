@@ -46,14 +46,24 @@ export interface Question {
   explanation?: string;
 }
 
-export type CapColor = 'terracota' | 'jade' | 'ocre' | 'cielo' | 'morado';
+/** Género elegido por el estudiante para su avatar. No interviene en el acceso. */
+export type Gender = 'nina' | 'nino';
 
+/**
+ * Perfil local del estudiante autenticado. Los datos de clase vienen de la
+ * cuenta que creó su profesor. Nunca incluye la contraseña.
+ */
 export interface Profile {
+  /** Id del usuario en el servicio de autenticación. */
   studentId: string;
   name: string;
-  grade: string;
-  section: string;
-  capColor: CapColor;
+  username: string;
+  gender: Gender | null;
+  courseId: string;
+  courseName: string;
+  schoolName: string;
+  /** El género cambió sin conexión y falta enviarlo al servidor. */
+  genderPendingSync?: boolean;
 }
 
 export interface Stats {
@@ -74,6 +84,51 @@ export interface SkillProgress {
   skill: SkillId;
   correct: number;
   total: number;
+}
+
+/* ---------------- Guardarropa ---------------- */
+
+/** Presentación del conjunto; define la silueta (falda o pantalón) sobre el mismo cuerpo base. */
+export type OutfitPresentation = 'femenina' | 'masculina';
+
+/**
+ * Estado de revisión cultural:
+ * - en-revision: ficha con fuentes publicadas; ilustración aún no validada.
+ * - pendiente-ilustracion: ficha documentada, pero falta una ilustración fiel.
+ * - verificado: revisado con la fuente y, de ser posible, con la comunidad.
+ */
+export type CulturalReview = 'en-revision' | 'pendiente-ilustracion' | 'verificado';
+
+export interface OutfitSource {
+  label: string;
+  url?: string;
+}
+
+export interface Outfit {
+  id: string;
+  name: string;
+  /** Comunidad o municipio de procedencia. */
+  community: string;
+  department: string;
+  /** Comunidad lingüística, cuando la fuente la indica. */
+  linguisticCommunity?: string;
+  presentation: OutfitPresentation;
+  description: string;
+  /** Aspectos de la ilustración que aún no están documentados. */
+  pendingDetails?: string;
+  sources: OutfitSource[];
+  xpRequired: number;
+  review: CulturalReview;
+}
+
+export interface WardrobeState {
+  studentId: string;
+  unlocked: string[];
+  equipped: string;
+  /** Último conjunto elegido en cada presentación, para restaurarlo si se corrige el género. */
+  equippedBy?: Partial<Record<OutfitPresentation, string>>;
+  /** Desbloqueos ya celebrados; evita repetir la celebración al recargar. */
+  celebrated: string[];
 }
 
 /** Intento guardado localmente, pendiente de enviarse al servidor. */

@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useProgress } from '../features/progress/ProgressContext';
+import { UnlockCelebration } from '../features/wardrobe/UnlockCelebration';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { ChartIcon, CloudOffIcon, PersonIcon, TempleIcon } from './icons';
 
@@ -24,6 +25,7 @@ export function AppLayout() {
           <span>Progreso</span>
         </NavLink>
       </nav>
+      <UnlockCelebration />
     </div>
   );
 }

@@ -59,6 +59,7 @@ public class StudentService {
         if (request.schoolGrade() != null) student.setSchoolGrade(optionalText(request.schoolGrade()));
         if (request.timeZone() != null) student.setTimeZone(timeZone(request.timeZone()));
         if (request.rankingEnabled() != null) student.setRankingEnabled(request.rankingEnabled());
+        if (request.gender() != null) student.setGender(request.gender());
         student.setUpdatedAt(clock.instant());
         return profile(student);
     }
@@ -108,6 +109,6 @@ public class StudentService {
 
     private Profile profile(Student s) {
         return new Profile(s.getId(), s.getAlias(), s.getAvatarKey(), s.getSchoolGrade(), s.getTimeZone(),
-            s.getRankingEnabled(), s.getStatus(), s.getCreatedAt(), s.getUpdatedAt());
+            s.getRankingEnabled(), s.getStatus(), s.getCreatedAt(), s.getUpdatedAt(), s.getGender());
     }
 }

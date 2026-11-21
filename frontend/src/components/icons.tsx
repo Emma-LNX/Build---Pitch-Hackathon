@@ -128,3 +128,86 @@ export function StarIcon({ className, filled = true }: IconProps & { filled?: bo
     </svg>
   );
 }
+
+export function EyeIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M3 16s5-9 13-9 13 9 13 9-5 9-13 9S3 16 3 16z" {...stroke} />
+      <circle cx="16" cy="16" r="4" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function HangerIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M13 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.3-1.5 2.4v1" {...stroke} />
+      <path d="M16 15 4 23.5c-1 .8-.5 2.5.8 2.5h22.4c1.3 0 1.8-1.7.8-2.5L16 15z" {...stroke} />
+    </svg>
+  );
+}
+
+export function HomeIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M4 15 16 5l12 10" {...stroke} />
+      <path d="M8 13v14h16V13" {...stroke} />
+      <path d="M13 27v-7h6v7" {...stroke} />
+    </svg>
+  );
+}
+
+export function GroupIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="11" cy="11" r="4" {...stroke} />
+      <circle cx="22" cy="12" r="3.2" {...stroke} />
+      <path d="M3 26c0-4.5 3.6-7.5 8-7.5s8 3 8 7.5" {...stroke} />
+      <path d="M19 19.5c4.4-.8 9 1.6 9 6" {...stroke} />
+    </svg>
+  );
+}
+
+export function BookIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 8c-3-2-7-2.5-11-2v19c4-.5 8 0 11 2 3-2 7-2.5 11-2V6c-4-.5-8 0-11 2z" {...stroke} />
+      <path d="M16 8v19" {...stroke} />
+    </svg>
+  );
+}
+
+export function DocIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M8 4h11l6 6v18H8z" {...stroke} />
+      <path d="M19 4v6h6M12 16h9M12 21h9" {...stroke} />
+    </svg>
+  );
+}
+
+export function SchoolIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M3 13 16 6l13 7" {...stroke} />
+      <path d="M6 13v14h20V13M3 27h26" {...stroke} />
+      <path d="M13 27v-6h6v6M11 16h2M19 16h2" {...stroke} />
+    </svg>
+  );
+}
+
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 7v18M7 16h18" {...stroke} strokeWidth={3.4} />
+    </svg>
+  );
+}
+
+export function TrashIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M6 9h20M13 9V6h6v3M9 9l1.5 18h11L23 9M14 14v8M18 14v8" {...stroke} />
+    </svg>
+  );
+}

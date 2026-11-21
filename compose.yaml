@@ -7,10 +7,19 @@ services:
       SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD:?Completar SUPABASE_DB_PASSWORD en .env}
       SUPABASE_URL: ${SUPABASE_URL:-http://localhost:54321}
       SUPABASE_AUTH_ISSUER: ${SUPABASE_AUTH_ISSUER:-${SUPABASE_URL:-http://localhost:54321}/auth/v1}
+      # Cuentas de estudiantes creadas por el profesor (solo en el servidor)
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      STUDENT_EMAIL_DOMAIN: ${STUDENT_EMAIL_DOMAIN:-alumnos.mayamente.invalid}
     expose:
       - "8081"
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Solo valores públicos: URL del proyecto y clave anon
+        VITE_SUPABASE_URL: ${SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
     ports:
       - "8080:80"
     volumes:

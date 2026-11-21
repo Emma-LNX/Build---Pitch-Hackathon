@@ -1,7 +1,10 @@
-import { useNavigate } from 'react-router-dom';
-import { Avatar } from '../../components/Avatar';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { PlayerAvatar } from '../../components/Avatar';
 import { GameBadge, Platform } from '../../components/GameArt';
-import { FlameIcon, StarIcon } from '../../components/icons';
+import { ChevronIcon, FlameIcon, HangerIcon, StarIcon } from '../../components/icons';
+import type { Gender } from '../../types';
+import { useAuth } from '../auth/AuthContext';
 import { ProgressBar } from '../../components/ProgressBar';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { fmt } from '../../lib/random';
@@ -20,8 +23,9 @@ const DEMO_CLASSMATES = [
 
 export function ProfilePage() {
   const { profile, stats, lessons, pending } = useProgress();
+  const { logout, changeGender } = useAuth();
   const online = useOnlineStatus();
-  const navigate = useNavigate();
+  const [leaving, setLeaving] = useState(false);
   if (!profile) return null;
 
   const { level, intoLevel } = levelFor(stats.xp);
@@ -40,19 +44,28 @@ export function ProfilePage() {
           <path d="M290 40 a10 10 0 0 1 6-14 a14 14 0 0 1 25-4 a10 10 0 0 1 18 8 a8 8 0 0 1 1 10 z" fill="#fff" />
         </svg>
         <div className="hero-figure">
-          <Avatar color={profile.capColor} className="hero-avatar" />
+          <PlayerAvatar className="hero-avatar" />
           <Platform className="hero-platform" />
         </div>
         <div className="nameplate">
           <h1>{profile.name}</h1>
           <p>
-            {profile.grade} grado · Sección {profile.section}
+            {profile.courseName} · {profile.schoolName}
           </p>
+          <p className="nameplate-user">Usuario: {profile.username}</p>
         </div>
-        <button className="btn btn-small btn-secondary hero-edit" onClick={() => navigate('/bienvenida?editar=1')}>
-          Editar
-        </button>
       </section>
+
+      <Link to="/perfil/guardarropa" className="wardrobe-entry">
+        <span className="wardrobe-entry-icon">
+          <HangerIcon />
+        </span>
+        <span className="wardrobe-entry-text">
+          <strong>Mi guardarropa</strong>
+          <small>Cambia el conjunto de tu explorador</small>
+        </span>
+        <ChevronIcon className="wardrobe-entry-go" />
+      </Link>
 
       <div className="badges">
         <GameBadge
@@ -93,6 +106,41 @@ export function ProfilePage() {
           })}
         </ol>
       </section>
+
+      <section className="panel panel-quiet">
+        <h2>Mi avatar</h2>
+        <p className="hint">Elige cómo se ve tu explorador. Tu experiencia y tus conjuntos se conservan.</p>
+        <div className="gender-row" role="group" aria-label="Avatar">
+          {(
+            [
+              ['nina', 'Niña'],
+              ['nino', 'Niño'],
+            ] as [Gender, string][]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`gender-option${profile.gender === value ? ' gender-on' : ''}`}
+              aria-pressed={profile.gender === value}
+              onClick={() => profile.gender !== value && changeGender(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <button
+        className="btn btn-secondary btn-block"
+        disabled={leaving}
+        onClick={async () => {
+          setLeaving(true);
+          await logout();
+        }}
+      >
+        {leaving ? 'Cerrando…' : 'Cerrar sesión'}
+      </button>
+      <p className="hint logout-hint">Al cerrar sesión, tu avance queda oculto hasta que vuelvas a entrar con tu contraseña.</p>
 
       <p className="sync-note">
         {pending === 0

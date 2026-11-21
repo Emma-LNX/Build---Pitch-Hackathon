@@ -35,6 +35,14 @@ spring:
     schemas: math_portal
     locations: classpath:db/migration
 
+mayamente:
+  auth:
+    # Solo en el servidor. Sin estas variables, crear cuentas o iniciar sesión responde 503.
+    supabase-url: ${SUPABASE_URL:}
+    anon-key: ${SUPABASE_ANON_KEY:}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+    student-email-domain: ${STUDENT_EMAIL_DOMAIN:alumnos.mayamente.invalid}
+
 management:
   endpoints:
     web:

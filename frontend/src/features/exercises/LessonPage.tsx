@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Avatar } from '../../components/Avatar';
+import { PlayerAvatar } from '../../components/Avatar';
 import { Platform } from '../../components/GameArt';
 import { CheckIcon, CloseIcon, CrossIcon, StarIcon } from '../../components/icons';
 import { ProgressBar } from '../../components/ProgressBar';
 import type { SkillId } from '../../types';
-import { useProgress, type LessonOutcome } from '../progress/ProgressContext';
+import { newAttemptId, useProgress, type LessonOutcome } from '../progress/ProgressContext';
+import { UnlockCelebration } from '../wardrobe/UnlockCelebration';
 import { findLesson, findWorld } from '../topics/worlds';
 import { generateLesson } from './generators';
 import { AnswerText, QuestionVisual } from './QuestionVisual';
@@ -23,11 +24,14 @@ export function LessonPage() {
 function LessonRun({ lessonId }: { lessonId: string }) {
   const lesson = findLesson(lessonId)!;
   const world = findWorld(lesson.worldId)!;
-  const { completeLesson, profile } = useProgress();
+  const { completeLesson } = useProgress();
   const navigate = useNavigate();
 
   const [round, setRound] = useState(0);
   const questions = useMemo(() => generateLesson(lesson), [lesson, round]);
+  // Un UUID por partida: si el evento de finalización se repite, no se premia dos veces
+  const attemptId = useMemo(() => newAttemptId(), [round]);
+  const finishing = useRef(false);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
@@ -53,8 +57,10 @@ function LessonRun({ lessonId }: { lessonId: string }) {
       setChecked(false);
       return;
     }
+    if (finishing.current) return;
+    finishing.current = true;
     setSaving(true);
-    setOutcome(await completeLesson({ lessonId, answers }));
+    setOutcome(await completeLesson({ attemptId, lessonId, answers }));
     setSaving(false);
   }
 
@@ -65,6 +71,7 @@ function LessonRun({ lessonId }: { lessonId: string }) {
     setChecked(false);
     setAnswers([]);
     setOutcome(null);
+    finishing.current = false;
   }
 
   if (outcome) {
@@ -73,7 +80,7 @@ function LessonRun({ lessonId }: { lessonId: string }) {
       <div className="lesson-page lesson-result">
         <div className="result-card">
           <div className="result-figure">
-            <Avatar color={profile?.capColor} className="result-avatar" />
+            <PlayerAvatar className="result-avatar" />
             <Platform className="result-platform" />
           </div>
           <h1>{outcome.passed ? '¡Lección completada!' : '¡Casi lo logras!'}</h1>
@@ -97,6 +104,7 @@ function LessonRun({ lessonId }: { lessonId: string }) {
             Continuar
           </button>
         </div>
+        <UnlockCelebration />
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Avatar } from '../../components/Avatar';
+import { PlayerAvatar } from '../../components/Avatar';
 import { CheckIcon, ChevronIcon, LockIcon, StarIcon } from '../../components/icons';
 import type { Lesson, LessonProgress } from '../../types';
 import { useProgress, weekActivity } from '../progress/ProgressContext';
@@ -34,7 +34,7 @@ const STATE_LABELS: Record<StationState, string> = {
 };
 
 export function MapPage() {
-  const { lessons, profile, stats } = useProgress();
+  const { lessons, stats, profile } = useProgress();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
@@ -91,6 +91,11 @@ export function MapPage() {
               <ChevronIcon dir="left" className="round-btn-icon" />
             </button>
             <div className="world-name">
+              {profile && (
+                <span className="class-chip">
+                  Clase {profile.courseName} · {profile.schoolName}
+                </span>
+              )}
               <h1>{world.name}</h1>
               <p>
                 {world.subtitle} · {done}/{world.lessons.length}
@@ -143,8 +148,7 @@ export function MapPage() {
                   </span>
                 )}
                 {state === 'current' && (
-                  <Avatar
-                    color={profile?.capColor}
+                  <PlayerAvatar
                     className={`explorer ${pos.x < SCENE_W / 2 ? 'explorer-right' : 'explorer-left'}`}
                   />
                 )}

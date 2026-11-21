@@ -32,11 +32,17 @@ public class Student {
     @Column(name = "estado")
     private String status;
 
+    @Column(name = "genero")
+    private String gender;
+
     @Column(name = "creado_en")
     private Instant createdAt;
 
     @Column(name = "actualizado_en")
     private Instant updatedAt;
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }

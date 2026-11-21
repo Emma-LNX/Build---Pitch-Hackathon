@@ -1,25 +1,31 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { TempleArt } from '../components/TempleArt';
-import { WelcomePage } from '../features/auth/WelcomePage';
+import { AuthProvider, useAuth } from '../features/auth/AuthContext';
+import { LoginPage } from '../features/auth/LoginPage';
 import { LessonPage } from '../features/exercises/LessonPage';
 import { ProfilePage } from '../features/progress/ProfilePage';
 import { ProgressPage } from '../features/progress/ProgressPage';
 import { ProgressProvider, useProgress } from '../features/progress/ProgressContext';
+import { StaffApp } from '../features/staff/StaffApp';
 import { MapPage } from '../features/topics/MapPage';
+import { WardrobePage } from '../features/wardrobe/WardrobePage';
 
 export function App() {
   return (
     <ProgressProvider>
-      <AppRoutes />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </ProgressProvider>
   );
 }
 
 function AppRoutes() {
   const { ready, profile } = useProgress();
+  const { status } = useAuth();
 
-  if (!ready) {
+  if (!ready || status === 'loading') {
     return (
       <div className="splash">
         <TempleArt world="tikal" className="splash-temple" />
@@ -27,10 +33,12 @@ function AppRoutes() {
     );
   }
 
-  if (!profile) {
+  // Sin sesión abierta no se monta ninguna pantalla con datos de estudiantes
+  if (status !== 'signed-in' || !profile) {
     return (
       <Routes>
-        <Route path="*" element={<WelcomePage />} />
+        <Route path="profe/*" element={<StaffApp />} />
+        <Route path="*" element={<LoginPage />} />
       </Routes>
     );
   }
@@ -40,10 +48,11 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<MapPage />} />
         <Route path="perfil" element={<ProfilePage />} />
+        <Route path="perfil/guardarropa" element={<WardrobePage />} />
         <Route path="progreso" element={<ProgressPage />} />
       </Route>
-      <Route path="bienvenida" element={<WelcomePage />} />
       <Route path="leccion/:lessonId" element={<LessonPage />} />
+      <Route path="profe/*" element={<StaffApp />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -21,9 +21,11 @@ public final class StudentDtos {
         @Size(max = 100) String avatarKey,
         @Size(max = 30) String schoolGrade,
         @Size(max = 100) String timeZone,
-        Boolean rankingEnabled
+        Boolean rankingEnabled,
+        // Género del avatar elegido por el estudiante. No interviene en el acceso.
+        @Pattern(regexp = "NINA|NINO", message = "Usa NINA o NINO") String gender
     ) {}
 
     public record Profile(UUID id, String alias, String avatarKey, String schoolGrade,
-        String timeZone, boolean rankingEnabled, String status, Instant createdAt, Instant updatedAt) {}
+        String timeZone, boolean rankingEnabled, String status, Instant createdAt, Instant updatedAt, String gender) {}
 }
