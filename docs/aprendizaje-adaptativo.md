@@ -60,7 +60,8 @@ Modelo tipo Elo en `frontend/src/features/adaptive/engine.ts`:
 - **Tabla** `math_portal.aprendizaje_respuestas` (migración `V16`): una fila por respuesta, con clave `id` del cliente para ignorar reenvíos.
 - **`POST /api/estadisticas/me/respuestas`** (alumno): body `{ "respuestas": AnswerRecord[] }`, hasta 500. Responde `{ recibidas, nuevas }`.
 - **`GET /api/estadisticas/me/dominio`** (alumno) y **`GET /api/estadisticas/profesor/alumnos/{alumnoId}/dominio`** (profesor asignado): nivel por categoría, aciertos, tiempo promedio, errores frecuentes y `recomendadas` (las dos categorías más débiles).
+- **`GET /api/estadisticas/profesor/aulas/{classroomId}`** (profesor del aula o director del colegio): cada alumno inscrito con su dominio, y por categoría el puntaje promedio, cuántos alumnos tienen datos y cuántos están en Semilla o Brote (`alumnosConDificultad`). Es la vista "Estadísticas" del panel del profesor y "Aulas" del director.
 - Código: `backend/.../modules/Estadistica/Aprendizaje*.java`, con la misma identificación de alumno y profesor que `EstadisticasService`.
 - **App**: al terminar cada sesión, y al abrirla, `frontend/src/features/adaptive/serverSync.ts` envía las respuestas pendientes si el alumno entró con usuario y hay internet. La Misión del día pide `recomendadas` al servidor y, si responde, arma la misión con ellas ("Misión recomendada"); sin servidor usa los datos del dispositivo.
 
-Pendiente: usar los temas que marca el profesor (`teacher_focus_topics`) como `focus` de `planMission`, y una pantalla de aula en el panel del profesor.
+Pendiente: usar los temas que marca el profesor (`teacher_focus_topics`) como `focus` de `planMission`.

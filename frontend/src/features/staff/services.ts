@@ -150,6 +150,36 @@ export interface StudentAccount {
 
 /* ---------- Endpoints ---------- */
 
+/** AprendizajeDtos.Categoria: nivel del alumno en una categoría del CNB */
+export interface LearningCategory {
+  categoria: string;
+  puntaje: number;
+  nivel: string;
+  respuestas: number;
+  correctas: number;
+  tiempoPromedioMs: number;
+}
+
+/** AprendizajeDtos.AlumnoAula */
+export interface LearningStudent {
+  studentId: string;
+  alias: string;
+  usuario: string | null;
+  respuestas: number;
+  correctas: number;
+  ultimaRespuesta: string | null;
+  categorias: LearningCategory[];
+  errores: { error: string; veces: number }[];
+  recomendadas: string[];
+}
+
+/** AprendizajeDtos.Aula */
+export interface ClassroomLearning {
+  classroomId: string;
+  alumnos: LearningStudent[];
+  categorias: { categoria: string; puntajePromedio: number; alumnosConDatos: number; alumnosConDificultad: number }[];
+}
+
 const enc = encodeURIComponent;
 const S = (school: string) => `/schools/${enc(school)}`;
 
@@ -213,6 +243,27 @@ export const teacherApi = {
     call<ClassroomStudent[]>(`${S(school)}/classrooms/${enc(classroom)}/students`, { signal }),
   studentProgress: (call: Call, school: string, classroom: string, student: string, signal?: AbortSignal) =>
     call<StudentProgress>(`${S(school)}/classrooms/${enc(classroom)}/students/${enc(student)}/progress`, { signal }),
+};
+
+/** Aulas y cuentas de alumnos por aula (docs/classrooms.md) y su aprendizaje (docs/aprendizaje-adaptativo.md) */
+export const classroomsApi = {
+  /** El director lista todas las aulas del colegio; el profesor, las suyas */
+  list: (call: Call, school: string, signal?: AbortSignal) => call<Classroom[]>(`${S(school)}/classrooms`, { signal }),
+  /** Un profesor solo puede crear su propia aula (teacherId = su cuenta) */
+  create: (call: Call, school: string, body: { grade: string; section: string; academicYear: number; teacherId: string }) =>
+    call<Classroom>(`${S(school)}/classrooms`, { method: 'POST', body }),
+  createStudent: (call: Call, school: string, classroom: string, body: { username: string; password: string; alias: string }) =>
+    call<{ studentId: string; username: string; alias: string; classroomId: string }>(
+      `${S(school)}/classrooms/${enc(classroom)}/student-accounts`,
+      { method: 'POST', body },
+    ),
+  changePassword: (call: Call, school: string, classroom: string, student: string, password: string) =>
+    call<void>(`${S(school)}/classrooms/${enc(classroom)}/student-accounts/${enc(student)}/password`, {
+      method: 'PUT',
+      body: { password },
+    }),
+  learning: (call: Call, classroom: string, signal?: AbortSignal) =>
+    call<ClassroomLearning>(`/estadisticas/profesor/aulas/${enc(classroom)}`, { signal }),
 };
 
 /** Módulo de cuentas de estudiantes (docs/cuentas-estudiantes.md) */

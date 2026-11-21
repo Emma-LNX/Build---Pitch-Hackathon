@@ -37,8 +37,11 @@ public class ClassroomService {
         return classrooms.visibleById(actor, school, classroom).orElseThrow(ClassroomService::notFound);
     }
 
+    /** El director crea aulas para cualquier profesor; un profesor puede crear la suya propia. */
     public ClassroomView create(UUID actor, UUID school, CreateClassroom request) {
-        access.requireDirector(actor, school);
+        if (access.isDirector(actor, school)) access.requireDirector(actor, school);
+        else if (actor.equals(request.teacherId())) access.verifiedEmail(actor);
+        else throw notFound();
         requireTeacher(school, request.teacherId());
         UUID classroom = UUID.randomUUID();
         classrooms.create(school, classroom, normalize(request.grade()), normalize(request.section()), request.academicYear(), request.teacherId());

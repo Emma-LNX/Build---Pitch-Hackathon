@@ -1554,6 +1554,29 @@ img, svg { display: block; }
 }
 .student-progress { margin-top: 12px; padding-top: 10px; border-top: 2px dashed #c9d6dc; }
 
+/* Aprendizaje del aula: nivel de cada alumno por categoría del CNB */
+.how-list { margin: 6px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.learning-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.learning-card { padding: 12px; background: #fff; border: var(--line) solid var(--tinta); border-radius: 16px; }
+.learning-card .row-between { flex-wrap: wrap; gap: 4px 12px; }
+.level-chips { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.level-chip {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border: 2.5px solid var(--tinta);
+  border-radius: 12px;
+  font-size: .82rem;
+  line-height: 1.25;
+}
+.level-chip strong { font-size: .9rem; }
+.level-semilla { background: var(--error-fondo); }
+.level-brote { background: var(--papel-calido); }
+.level-milpa { background: #eaf6dc; }
+.level-elote { background: var(--acierto-fondo); }
+.level-mazorca { background: #c9ecb2; }
+.learning-note { margin: 8px 0 0; font-size: .92rem; }
+
 /* ---------- Animaciones (breves, solo transform/opacity) ---------- */
 @keyframes bob { 50% { transform: translateY(-5px); } }
 @keyframes bob-x { 50% { transform: translate(-50%, -4px); } }

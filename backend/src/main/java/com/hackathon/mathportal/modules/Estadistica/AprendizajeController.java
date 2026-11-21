@@ -20,4 +20,7 @@ public class AprendizajeController {
 
     @GetMapping("/profesor/alumnos/{alumnoId}/dominio")
     public Dominio alumno(@PathVariable UUID alumnoId) { return service.alumno(alumnoId); }
+
+    @GetMapping("/profesor/aulas/{classroomId}")
+    public Aula aula(@PathVariable UUID classroomId) { return service.aula(classroomId); }
 }

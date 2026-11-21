@@ -44,26 +44,25 @@ Cambiar de contexto desmonta el área anterior; todas las cargas se cancelan al 
 
 | Vista | Endpoints |
 | --- | --- |
-| Inicio | `GET /schools/{s}/statistics` (conteos administrativos: profesores, estudiantes, cursos, temas, aulas) |
+| Inicio | `GET /schools/{s}/statistics` (conteos administrativos: profesores, alumnos, aulas) |
 | Colegios | `GET /schools`, `POST /schools {name}` |
 | Integrantes | `GET /schools/{s}/members`, `POST /schools/{s}/members {email, role}`, `DELETE /schools/{s}/members/{user}` |
-| Cursos | `GET/POST /schools/{s}/courses`, `DELETE /schools/{s}/courses/{c}`, `GET /schools/{s}/courses/{c}/members`, `PUT` y `DELETE /schools/{s}/courses/{c}/members/{user}` (sin cuerpo) |
-| Temas | `GET /schools/{s}/courses`, `GET /schools/{s}/courses/{c}/topics` (solo lectura) |
+| Aulas | `GET /schools/{s}/classrooms`, `GET /estadisticas/profesor/aulas/{a}` |
 | Perfil | `GET /directors/me` |
 | Activación | `POST /directors/register {name}` |
 
+Las rutas `cursos` y `temas` siguen existiendo, pero ya no aparecen en el menú: el producto se organiza por aulas.
+
 ### Profesor
+
+Todo se organiza por **aula** (por ahora solo hay Matemática, así que no se usan cursos).
 
 | Vista | Endpoints |
 | --- | --- |
-| Inicio | `GET /schools/{s}/courses`, `GET /schools/{s}/teachers/me` |
-| Mis cursos | `GET /schools/{s}/courses` (solo los asignados) |
-| Estudiantes | `GET /teacher/classes`, `GET/POST /teacher/classes/{c}/students`, `PUT /teacher/students/{u}/password`, `PUT /teacher/students/{u}/class` |
-| Temas | `GET/POST /schools/{s}/courses/{c}/topics {title ≤160, content ≤20000}` |
-| Aulas | `GET /schools/{s}/teachers/me`, `GET /schools/{s}/classrooms/{a}/statistics`, `GET /schools/{s}/classrooms/{a}/students`, `GET …/students/{e}/progress` |
-| Perfil | `GET /schools`, `GET /schools/{s}/teachers/me`, `GET /schools/{s}/courses` |
-
-Los temas de “Aulas” son los del catálogo global de práctica (tabla `temas`), distintos de los temas publicados en cursos (`topics`). No se relacionan entre sí.
+| Inicio | `GET /schools/{s}/teachers/me` (sus aulas), `POST /schools/{s}/classrooms {grade, section, academicYear, teacherId}` (el profesor crea su propia aula) |
+| Alumnos | `GET /estadisticas/profesor/aulas/{a}` (lista), `POST /schools/{s}/classrooms/{a}/student-accounts {username, password, alias}` (crea la cuenta y la inscribe en el aula), `PUT …/student-accounts/{e}/password {password}` |
+| Estadísticas | `GET /estadisticas/profesor/aulas/{a}`: nivel de cada alumno por tema del CNB, temas con alumnos que necesitan apoyo y qué le conviene practicar a cada uno (docs/aprendizaje-adaptativo.md) |
+| Perfil | `GET /schools`, `GET /schools/{s}/teachers/me` |
 
 ## Errores y estados
 
@@ -76,12 +75,11 @@ El acceso y todas las operaciones administrativas requieren conexión. Sin inter
 ## Funciones que el backend no ofrece (no implementadas)
 
 - Editar o eliminar colegios; invitar por correo o crear cuentas de profesores desde la app.
-- Que el profesor cree o elimine cursos, o administre membresías del colegio.
+- Que el profesor administre membresías del colegio.
 - Que el director publique temas.
 - Relación entre temas de curso y ejercicios, asignación de actividades o resultados académicos por curso.
 - Series históricas para gráficas de línea (los bocetos las muestran, pero no hay endpoint tipado).
-- Administración de aulas (crear, editar, matricular, trasladar) en la interfaz: el backend la ofrece (docs/classrooms.md), pero no estaba en el alcance de estas vistas.
-- El módulo `/estadisticas/profesor/*` responde mapas sin tipo; no se usa para no adivinar campos.
+- Editar, eliminar o trasladar alumnos entre aulas desde la interfaz (el backend lo ofrece al director, docs/classrooms.md).
 
 ## Verificación de integración
 

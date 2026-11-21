@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
-import { BookIcon, DocIcon, GroupIcon, HomeIcon, PersonIcon, SchoolIcon, TrashIcon } from '../../components/icons';
+import { ChartIcon, GroupIcon, HomeIcon, PersonIcon, SchoolIcon, TrashIcon } from '../../components/icons';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { AreaNav, NO_SCHOOL_BASE, useStaffLogout, type Access } from './StaffApp';
 import { useStaffSession } from './StaffSession';
+import { ClassroomLearningView } from './teacher';
 import {
+  classroomsApi,
   coursesApi,
   directorsApi,
   membersApi,
@@ -43,8 +45,7 @@ export function DirectorArea({ access, schoolId, onAccessChange }: Props) {
     ...(schoolId
       ? [
           { to: `${base}/integrantes`, label: 'Integrantes', icon: <GroupIcon /> },
-          { to: `${base}/cursos`, label: 'Cursos', icon: <BookIcon /> },
-          { to: `${base}/temas`, label: 'Temas', icon: <DocIcon /> },
+          { to: `${base}/aulas`, label: 'Aulas', icon: <ChartIcon /> },
         ]
       : []),
     { to: `${base}/perfil`, label: 'Perfil', icon: <PersonIcon /> },
@@ -57,6 +58,7 @@ export function DirectorArea({ access, schoolId, onAccessChange }: Props) {
           <Route index element={schoolId ? <DirectorHome schoolId={schoolId} access={access} base={base} /> : <NoSchoolYet base={base} />} />
           <Route path="colegios" element={<Schools access={access} current={schoolId} onAccessChange={onAccessChange} />} />
           {schoolId && <Route path="integrantes" element={<Members schoolId={schoolId} />} />}
+          {schoolId && <Route path="aulas" element={<DirectorClassrooms schoolId={schoolId} />} />}
           {schoolId && <Route path="cursos" element={<Courses schoolId={schoolId} />} />}
           {schoolId && <Route path="temas" element={<TopicsBrowser schoolId={schoolId} canPublish={() => false} role="DIRECTOR" />} />}
           <Route path="perfil" element={<DirectorProfileView access={access} />} />
@@ -109,9 +111,7 @@ function DirectorHome({ schoolId, access, base }: { schoolId: string; access: Ac
               {(
                 [
                   ['Profesores', stats.data.professors],
-                  ['Estudiantes', stats.data.students],
-                  ['Cursos', stats.data.courses],
-                  ['Temas', stats.data.topics],
+                  ['Alumnos', stats.data.students],
                   ['Aulas', stats.data.classrooms],
                 ] as [string, number][]
               ).map(([label, value]) => (
@@ -125,7 +125,7 @@ function DirectorHome({ schoolId, access, base }: { schoolId: string; access: Ac
         )}
       </section>
 
-      {stats.data && (stats.data.professors === 0 || stats.data.courses === 0) && (
+      {stats.data && (stats.data.professors === 0 || stats.data.classrooms === 0) && (
         <section className="panel panel-warm">
           <h2>Siguiente paso</h2>
           {stats.data.professors === 0 && (
@@ -133,10 +133,8 @@ function DirectorHome({ schoolId, access, base }: { schoolId: string; access: Ac
               Añade a tus profesores con el correo de su cuenta. <Link to={`${base}/integrantes`}>Ir a Integrantes</Link>
             </p>
           )}
-          {stats.data.courses === 0 && (
-            <p>
-              Crea el primer curso y asígnale un profesor. <Link to={`${base}/cursos`}>Ir a Cursos</Link>
-            </p>
+          {stats.data.professors > 0 && stats.data.classrooms === 0 && (
+            <p>Cada profesor crea su aula y las cuentas de sus alumnos desde su panel.</p>
           )}
         </section>
       )}
@@ -146,15 +144,49 @@ function DirectorHome({ schoolId, access, base }: { schoolId: string; access: Ac
           <GroupIcon className="action-icon" />
           <span>Administrar integrantes</span>
         </Link>
-        <Link className="action-card" to={`${base}/cursos`}>
-          <BookIcon className="action-icon" />
-          <span>Administrar cursos</span>
-        </Link>
-        <Link className="action-card" to={`${base}/temas`}>
-          <DocIcon className="action-icon" />
-          <span>Ver temas</span>
+        <Link className="action-card" to={`${base}/aulas`}>
+          <ChartIcon className="action-icon" />
+          <span>Aulas y estadísticas</span>
         </Link>
       </section>
+    </div>
+  );
+}
+
+/* ---------- Aulas: estadísticas de aprendizaje ---------- */
+
+function DirectorClassrooms({ schoolId }: { schoolId: string }) {
+  const { call } = useStaffSession();
+  const rooms = useRemote(`classrooms:${schoolId}`, (signal) => classroomsApi.list(call, schoolId, signal));
+  const [selected, setSelected] = useState<string | null>(null);
+  const list = rooms.data ?? [];
+  const current = list.find((r) => r.id === selected) ?? list[0] ?? null;
+  return (
+    <div className="staff-page">
+      <h1>Aulas</h1>
+      <p className="hint">Cada profesor crea su aula y las cuentas de sus alumnos desde su panel. Aquí ves cómo va cada aula.</p>
+      {rooms.loading && !rooms.data ? (
+        <Loading />
+      ) : rooms.error && !rooms.data ? (
+        <ErrorState error={rooms.error} onRetry={rooms.reload} />
+      ) : !current ? (
+        <Empty title="Aún no hay aulas en el colegio.">
+          <p>Añade a tus profesores en Integrantes; ellos crean su aula.</p>
+        </Empty>
+      ) : (
+        <>
+          {list.length > 1 && (
+            <div className="chip-row" role="group" aria-label="Aula">
+              {list.map((r) => (
+                <button key={r.id} className="chip chip-wide" aria-pressed={r.id === current.id} onClick={() => setSelected(r.id)}>
+                  {r.grade} {r.section} · {r.academicYear}
+                </button>
+              ))}
+            </div>
+          )}
+          <ClassroomLearningView key={current.id} room={current} />
+        </>
+      )}
     </div>
   );
 }

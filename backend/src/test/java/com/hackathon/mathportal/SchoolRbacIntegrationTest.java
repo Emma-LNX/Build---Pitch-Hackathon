@@ -471,12 +471,25 @@ class SchoolRbacIntegrationTest {
     }
 
     @Test
+    void teacherCreatesOnlyOwnClassroom() throws Exception {
+        mvc.perform(post(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json").content(roomBody("CUARTO", "A", 2026, TEACHER_A)))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.teacherId").value(TEACHER_A.toString()));
+        mvc.perform(post(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json").content(roomBody("CUARTO", "B", 2026, MULTI))).andExpect(status().isNotFound());
+        mvc.perform(post(classroomsPath(SCHOOL_B)).contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json").content(roomBody("CUARTO", "A", 2026, TEACHER_A))).andExpect(status().isNotFound());
+    }
+
+    @Test
     void classroomManagementIsRestrictedToSchoolDirector() throws Exception {
         owner(id(41), SCHOOL_A); owner(id(42), SCHOOL_B);
         room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
-        for (UUID actor : new UUID[] {TEACHER_A, STUDENT_A, id(42)}) {
+        for (UUID actor : new UUID[] {STUDENT_A, id(42)}) {
             mvc.perform(post(classroomsPath(SCHOOL_A)).contextPath("/api").header("Authorization", token(actor))
                 .contentType("application/json").content(roomBody("SEGUNDO", "A", 2026, TEACHER_A))).andExpect(status().isNotFound());
+        }
+        for (UUID actor : new UUID[] {TEACHER_A, STUDENT_A, id(42)}) {
             mvc.perform(put(classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A)
                 .contextPath("/api").header("Authorization", token(actor))).andExpect(status().isNotFound());
             mvc.perform(delete(classroomsPath(SCHOOL_A) + "/" + id(61)).contextPath("/api").header("Authorization", token(actor)))

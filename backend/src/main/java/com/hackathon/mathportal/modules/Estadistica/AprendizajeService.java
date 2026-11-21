@@ -55,6 +55,34 @@ public class AprendizajeService {
         return dominio(estadisticas.asignada(profesor, alumno).orElseThrow(this::noEncontrado).id());
     }
 
+    public Aula aula(UUID classroom) {
+        if (!repository.puedeVerAula(UUID.fromString(identity.subject()), classroom)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Aula no disponible");
+        }
+        List<AlumnoAula> alumnos = new ArrayList<>();
+        for (var a : repository.alumnosDelAula(classroom)) {
+            Dominio d = dominio(a.alumnoId());
+            int respuestas = d.categorias().stream().mapToInt(Categoria::respuestas).sum();
+            int correctas = d.categorias().stream().mapToInt(Categoria::correctas).sum();
+            String usuario = a.email() == null ? null : a.email().split("@")[0];
+            alumnos.add(new AlumnoAula(a.studentId(), a.alias(), usuario, respuestas, correctas, a.ultimaRespuesta(),
+                d.categorias(), d.errores(), d.recomendadas()));
+        }
+
+        List<CategoriaAula> categorias = new ArrayList<>();
+        for (String id : CATEGORIAS) {
+            List<Categoria> datos = alumnos.stream()
+                .flatMap(a -> a.categorias().stream())
+                .filter(c -> c.categoria().equals(id))
+                .toList();
+            if (datos.isEmpty()) continue;
+            int promedio = (int) Math.round(datos.stream().mapToInt(Categoria::puntaje).average().orElse(0));
+            int conDificultad = (int) datos.stream().filter(c -> c.puntaje() < 60).count();
+            categorias.add(new CategoriaAula(id, promedio, datos.size(), conDificultad));
+        }
+        return new Aula(classroom, alumnos, categorias);
+    }
+
     private UUID actual() {
         return estadisticas.propia(identity.subject()).orElseThrow(this::noEncontrado).id();
     }

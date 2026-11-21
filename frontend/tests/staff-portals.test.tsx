@@ -18,7 +18,27 @@ vi.mock('../src/features/staff/supabaseAuth', async (original) => ({
 }));
 
 type School = { id: string; name: string; role: string };
+const ROOM = {
+  id: 'room', schoolId: 'school', grade: 'Cuarto primaria', section: 'A', academicYear: 2026, teacherId: 'staff',
+  studentCount: 1, createdAt: '2026-01-10T00:00:00Z', updatedAt: '2026-01-10T00:00:00Z',
+};
+const LEARNING = {
+  classroomId: 'room',
+  alumnos: [{
+    studentId: 'ana', alias: 'Ana López', usuario: 'ana.lopez', respuestas: 10, correctas: 7, ultimaRespuesta: '2026-03-02T15:00:00Z',
+    categorias: [
+      { categoria: 'fracciones', puntaje: 35, nivel: 'Semilla', respuestas: 4, correctas: 1, tiempoPromedioMs: 9000 },
+      { categoria: 'suma-resta', puntaje: 80, nivel: 'Elote', respuestas: 6, correctas: 6, tiempoPromedioMs: 4000 },
+    ],
+    errores: [], recomendadas: ['fracciones', 'suma-resta'],
+  }],
+  categorias: [
+    { categoria: 'fracciones', puntajePromedio: 35, alumnosConDatos: 1, alumnosConDificultad: 1 },
+    { categoria: 'suma-resta', puntajePromedio: 80, alumnosConDatos: 1, alumnosConDificultad: 0 },
+  ],
+};
 let schools: School[];
+let rooms: typeof ROOM[];
 let director: boolean;
 let sent: { path: string; method: string; body: unknown }[];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -28,6 +48,7 @@ beforeEach(() => {
   sessionStorage.setItem('mayamente.staff.refresh', 'stored');
   history.replaceState(null, '', '/profe');
   schools = [];
+  rooms = [ROOM];
   director = false;
   sent = [];
   vi.stubGlobal('fetch', vi.fn(async (input, init) => {
@@ -51,12 +72,17 @@ beforeEach(() => {
     if (path === '/api/schools/school/members') return json([{ userId: 'teacher', email: 'teacher@example.test', role: 'PROFESOR' }]);
     if (path === '/api/schools/school/courses/course/members') return json([]);
     if (path === '/api/schools/school/courses/course/members/teacher' && method === 'PUT') return new Response(null, { status: 204 });
-    if (path.endsWith('/teachers/me')) return json({ userId: 'staff', schoolId: 'school', email: 'staff@example.test', classrooms: [] });
-    if (path === '/api/teacher/classes') return json([{ schoolId: 'school', schoolName: 'Mi escuela', courseId: 'course', courseName: 'Matemática' }]);
-    if (path === '/api/teacher/classes/course/students' && method === 'POST') {
-      return json({ userId: 'student', displayName: body.displayName, username: body.username, courseId: 'course', createdAt: new Date().toISOString(), passwordResetAt: null }, 201);
+    if (path.endsWith('/teachers/me')) return json({ userId: 'staff', schoolId: 'school', email: 'staff@example.test', classrooms: rooms });
+    if (path === '/api/schools/school/classrooms' && method === 'POST') {
+      const room = { ...ROOM, id: 'new-room', grade: body.grade, section: body.section, academicYear: body.academicYear };
+      rooms = [...rooms, room];
+      return json(room, 201);
     }
-    if (path === '/api/teacher/classes/course/students') return json([]);
+    if (path === '/api/schools/school/classrooms') return json(rooms);
+    if (path === '/api/schools/school/classrooms/room/student-accounts' && method === 'POST') {
+      return json({ studentId: 'student', username: body.username, alias: body.alias, classroomId: 'room' }, 201);
+    }
+    if (path === '/api/estadisticas/profesor/aulas/room') return json(LEARNING);
     if (path.endsWith('/topics') && method === 'GET') return json([]);
     if (path.endsWith('/topics') && method === 'POST') return json({ id: 'topic', ...body }, 201);
     throw new Error(`Unexpected endpoint: ${method} ${path}`);
@@ -78,7 +104,7 @@ describe('recorridos de los paneles con contratos HTTP', () => {
     fireEvent.change(await screen.findByLabelText('Correo'), { target: { value: 'staff@example.test' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
-    await screen.findByRole('button', { name: 'Matemática' });
+    await screen.findByText('Cuarto primaria A · 2026');
     expect(sessionStorage.getItem('mayamente.staff.refresh')).toBe('test-refresh');
   });
 
@@ -92,7 +118,7 @@ describe('recorridos de los paneles con contratos HTTP', () => {
     await screen.findByRole('heading', { name: '¿Dónde vas a trabajar?' });
     expect(sent.every((r) => r.path === '/api/schools' || r.path === '/api/directors/me')).toBe(true);
     fireEvent.click(screen.getByRole('link', { name: /Profesor Escuela docente/ }));
-    await screen.findByRole('button', { name: 'Matemática' });
+    await screen.findByText('Cuarto primaria A · 2026');
     expect(sent.some((r) => r.path.includes('/other/'))).toBe(false);
   });
 
@@ -137,45 +163,62 @@ describe('recorridos de los paneles con contratos HTTP', () => {
     ]);
   });
 
-  it('el profesor ve sus cursos y no activa automáticamente un perfil de director', async () => {
+  it('el profesor ve sus aulas y no activa automáticamente un perfil de director', async () => {
     schools = [{ id: 'school', name: 'Mi escuela', role: 'PROFESOR' }];
     open();
-    await screen.findByRole('heading', { name: 'Tus cursos' });
-    expect(await screen.findByRole('button', { name: 'Matemática' })).toBeTruthy();
+    await screen.findByRole('heading', { name: 'Tus aulas' });
+    expect(await screen.findByText('Cuarto primaria A · 2026')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Integrantes' })).toBeNull();
     expect(sent.some((r) => r.method === 'POST')).toBe(false);
   });
 
-  it('crear un estudiante envía el contrato real y permite descartar sus credenciales', async () => {
+  it('el profesor crea su propia aula', async () => {
     schools = [{ id: 'school', name: 'Mi escuela', role: 'PROFESOR' }];
-    open('/profe/profesor/school/estudiantes');
-    await screen.findByRole('heading', { name: 'Crear cuenta de estudiante' });
-    fireEvent.change(screen.getByLabelText('Nombre del estudiante'), { target: { value: 'Ana' } });
+    open();
+    await screen.findByRole('heading', { name: 'Tus aulas' });
+    fireEvent.change(screen.getByLabelText('Sección'), { target: { value: 'B' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear aula' }));
+    const year = new Date().getFullYear();
+    await screen.findByText(`Aula Cuarto primaria B · ${year} creada. Ahora agrega a tus alumnos.`);
+    expect(sent.find((r) => r.method === 'POST')).toEqual({
+      path: '/api/schools/school/classrooms', method: 'POST',
+      body: { grade: 'Cuarto primaria', section: 'B', academicYear: year, teacherId: 'staff' },
+    });
+  });
+
+  it('crear un alumno lo inscribe en el aula y permite descartar sus credenciales', async () => {
+    schools = [{ id: 'school', name: 'Mi escuela', role: 'PROFESOR' }];
+    open('/profe/profesor/school/alumnos');
+    await screen.findByRole('heading', { name: 'Crear cuenta de alumno' });
+    fireEvent.change(screen.getByLabelText('Nombre del alumno'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Nombre de usuario'), { target: { value: 'ana.4b' } });
     fireEvent.change(screen.getByLabelText('Contraseña inicial'), { target: { value: 'ceiba123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
     await screen.findByRole('heading', { name: /Cuenta creada.*Ana/ });
     expect(sent.find((r) => r.method === 'POST')).toEqual({
-      path: '/api/teacher/classes/course/students', method: 'POST',
-      body: { displayName: 'Ana', username: 'ana.4b', password: 'ceiba123' },
+      path: '/api/schools/school/classrooms/room/student-accounts', method: 'POST',
+      body: { username: 'ana.4b', password: 'ceiba123', alias: 'Ana' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Listo' }));
     expect(screen.queryByText('ceiba123')).toBeNull();
     expect(JSON.stringify(sessionStorage)).not.toContain('ceiba123');
   });
 
-  it('publicar un tema envía únicamente title y content al curso seleccionado', async () => {
+  it('el profesor ve el nivel de cada alumno por tema y qué le conviene practicar', async () => {
     schools = [{ id: 'school', name: 'Mi escuela', role: 'PROFESOR' }];
-    open('/profe/profesor/school/temas');
-    await screen.findByRole('heading', { name: 'Publicar tema en Matemática' });
-    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Fracciones' } });
-    fireEvent.change(screen.getByLabelText('Contenido'), { target: { value: 'Dividir en partes iguales.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Publicar tema' }));
-    await screen.findByText('Tema “Fracciones” publicado en Matemática.');
-    expect(sent.find((r) => r.method === 'POST')).toEqual({
-      path: '/api/schools/school/courses/course/topics', method: 'POST',
-      body: { title: 'Fracciones', content: 'Dividir en partes iguales.' },
-    });
+    open('/profe/profesor/school/estadisticas');
+    await screen.findByText('Ana López');
+    expect(screen.getByText('1 alumno necesita apoyo')).toBeTruthy();
+    expect(screen.getByText('Semilla · 35')).toBeTruthy();
+    expect(screen.getByText('Le conviene practicar:')).toBeTruthy();
+  });
+
+  it('el director ve las estadísticas de las aulas de su colegio', async () => {
+    director = true;
+    schools = [{ id: 'school', name: 'Mi escuela', role: 'DIRECTOR' }];
+    open('/profe/director/school/aulas');
+    await screen.findByText('Ana López');
+    expect(sent.some((r) => r.path === '/api/estadisticas/profesor/aulas/room')).toBe(true);
   });
 
   it('un director no obtiene el formulario de publicación de temas', async () => {
@@ -188,8 +231,8 @@ describe('recorridos de los paneles con contratos HTTP', () => {
 
   it('rechaza una ruta docente de un colegio ajeno sin consultar sus datos', async () => {
     schools = [{ id: 'school', name: 'Mi escuela', role: 'PROFESOR' }];
-    open('/profe/profesor/foreign/estudiantes');
-    await screen.findByRole('heading', { name: 'Tus cursos' });
+    open('/profe/profesor/foreign/alumnos');
+    await screen.findByRole('heading', { name: 'Tus aulas' });
     await waitFor(() => expect(sent.some((r) => r.path.includes('foreign'))).toBe(false));
   });
 });

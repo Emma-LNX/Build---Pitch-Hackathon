@@ -352,7 +352,7 @@ function Roster({
 /** Ficha para entregar las credenciales. Al cerrarla, la contraseña desaparece de la app. */
 export function DeliveryCard({ delivery, onDone }: { delivery: Delivery; onDone: () => void }) {
   const [copied, setCopied] = useState(false);
-  const text = `MayaMente\nEstudiante: ${delivery.name}\nCurso: ${delivery.courseName}\nUsuario: ${delivery.username}\nContraseña: ${delivery.password}`;
+  const text = `MayaMente\nAlumno: ${delivery.name}\nAula: ${delivery.courseName}\nUsuario: ${delivery.username}\nContraseña: ${delivery.password}`;
 
   async function copy() {
     try {
@@ -369,7 +369,7 @@ export function DeliveryCard({ delivery, onDone }: { delivery: Delivery; onDone:
         {delivery.reason === 'nueva' ? 'Cuenta creada' : 'Contraseña nueva'}: entrega estos datos a {delivery.name}
       </h2>
       <dl className="delivery-data">
-        <dt>Curso</dt>
+        <dt>Aula</dt>
         <dd>{delivery.courseName}</dd>
         <dt>Usuario</dt>
         <dd className="mono">{delivery.username}</dd>

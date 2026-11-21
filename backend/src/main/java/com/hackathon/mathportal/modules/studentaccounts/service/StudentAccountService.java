@@ -3,6 +3,7 @@ package com.hackathon.mathportal.modules.studentaccounts.service;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.UUID;
+import com.hackathon.mathportal.modules.accounts.service.AuthProperties;
 import com.hackathon.mathportal.modules.auth.client.SupabaseAdminClient;
 import com.hackathon.mathportal.modules.auth.service.SchoolAdministrationAccess;
 import com.hackathon.mathportal.modules.classrooms.dto.ClassroomDtos.ClassroomView;
@@ -36,16 +37,19 @@ public class StudentAccountService {
     private final SupabaseAdminClient supabase;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    /** Dominio de las cuentas creadas por curso (modules/accounts); también las gestiona la escuela. */
+    private final String courseAccountDomain;
 
     public StudentAccountService(StudentAccountRepository accounts, ClassroomRepository classrooms,
             SchoolAdministrationAccess access, SupabaseAdminClient supabase,
-            PlatformTransactionManager transactionManager, Clock clock) {
+            PlatformTransactionManager transactionManager, Clock clock, AuthProperties auth) {
         this.accounts = accounts;
         this.classrooms = classrooms;
         this.access = access;
         this.supabase = supabase;
         this.transactions = new TransactionTemplate(transactionManager);
         this.clock = clock;
+        this.courseAccountDomain = "@" + auth.studentEmailDomain();
     }
 
     public StudentAccountView create(UUID actor, UUID school, UUID classroom, CreateStudentAccount request) {
@@ -66,7 +70,8 @@ public class StudentAccountService {
         transactions.executeWithoutResult(status -> {
             authorize(actor, school, classroom);
             // Solo cuentas creadas por la escuela: nunca la de un alumno que entra con su propio correo.
-            boolean managed = accounts.accountEmail(student).map(email -> email.endsWith(EMAIL_DOMAIN)).orElse(false);
+            boolean managed = accounts.accountEmail(student)
+                .map(email -> email.endsWith(EMAIL_DOMAIN) || email.endsWith(courseAccountDomain)).orElse(false);
             if (!managed || !accounts.enrolled(school, classroom, student)) throw notFound();
         });
         supabase.updatePassword(student, request.password());

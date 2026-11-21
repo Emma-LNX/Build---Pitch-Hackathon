@@ -40,4 +40,14 @@ public final class AprendizajeDtos {
     /** `recomendadas`: categorías más débiles, en orden; la app arma la misión con ellas. */
     public record Dominio(UUID alumnoId, List<Categoria> categorias, List<ErrorFrecuente> errores,
             List<String> recomendadas) {}
+
+    /** `studentId` es el usuario de Supabase Auth; `respuestas` en 0 si aún no ha jugado. */
+    public record AlumnoAula(UUID studentId, String alias, String usuario, int respuestas, int correctas,
+            Instant ultimaRespuesta, List<Categoria> categorias, List<ErrorFrecuente> errores,
+            List<String> recomendadas) {}
+
+    /** `alumnosConDificultad`: alumnos en Semilla o Brote en esa categoría. */
+    public record CategoriaAula(String categoria, int puntajePromedio, int alumnosConDatos, int alumnosConDificultad) {}
+
+    public record Aula(UUID classroomId, List<AlumnoAula> alumnos, List<CategoriaAula> categorias) {}
 }
