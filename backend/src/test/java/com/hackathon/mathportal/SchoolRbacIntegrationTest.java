@@ -38,7 +38,7 @@ import org.springframework.test.web.servlet.MockMvc;
     "spring.datasource.url=jdbc:h2:mem:rbac;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.username=sa", "spring.datasource.password=",
-    "spring.flyway.target=1", "spring.jpa.hibernate.ddl-auto=none"
+    "spring.jpa.hibernate.ddl-auto=none"
 })
 @AutoConfigureMockMvc
 @Import(RbacTestDatabaseConfig.class)

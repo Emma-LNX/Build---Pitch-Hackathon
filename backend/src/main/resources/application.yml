@@ -4,17 +4,19 @@ server:
     context-path: /api
 
 spring:
+  application:
+    name: math-portal
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SUPABASE_AUTH_ISSUER}
-          jwk-set-uri: ${SUPABASE_AUTH_ISSUER}/.well-known/jwks.json
-  jackson:
-    deserialization:
-      fail-on-unknown-properties: true
-  application:
-    name: math-portal
+          issuer-uri: ${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}
+          jwk-set-uri: ${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}/.well-known/jwks.json
+          audiences: authenticated
+          jws-algorithms: ES256,RS256
   datasource:
     url: ${SUPABASE_DB_URL}
     username: ${SUPABASE_DB_USERNAME}

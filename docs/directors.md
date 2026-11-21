@@ -52,15 +52,15 @@ Los campos desconocidos se rechazan. Un token inválido recibe `401`; un directo
 
 ## Persistencia y aislamiento
 
-V3 agrega `director_accounts` y `school_directors`, sin modificar migraciones anteriores. Hay un director por colegio y varios colegios por director. V4 revoca permisos directos de cliente y activa RLS en las tablas nuevas. Los roles PROFESOR y ALUMNO siguen en `school_memberships`; DIRECTOR se deriva de `school_directors`.
+V5 agrega `director_accounts` y `school_directors`, sin modificar migraciones anteriores. Hay un director por colegio y varios colegios por director. V6 revoca permisos directos de cliente y activa RLS en las tablas nuevas. Los roles PROFESOR y ALUMNO siguen en `school_memberships`; DIRECTOR se deriva de `school_directors`.
 
 Las operaciones administrativas comprueban la confirmación del correo y bloquean la relación de propiedad durante la transacción. Cada curso y miembro se filtra por colegio. La conexión JDBC propietaria omite RLS, por lo que estas comprobaciones de la API siguen siendo obligatorias.
 
-Los colegios anteriores a V3 no reciben director automáticamente. Un operador de confianza puede vincularlos explícitamente por SQL tras registrar su director. No existe una ruta pública para apropiarse de colegios existentes.
+Los colegios anteriores a V5 no reciben director automáticamente. Un operador de confianza puede vincularlos explícitamente por SQL tras registrar su director. No existe una ruta pública para apropiarse de colegios existentes.
 
 ## Pruebas
 
-`mvn test` verifica la API con JWT firmados, JWKS local y H2 temporal aplicando V1, V3 y V5. Las migraciones PostgreSQL de RLS V2/V4 y consultas de aislamiento se han verificado por separado en PostgreSQL temporal. No se lee `.env`, no se modifica Supabase y no se envían correos en las pruebas. El envío real depende de la configuración de Supabase y SMTP.
+`mvn test` verifica la API con JWT firmados, JWKS local y H2 temporal aplicando V3, V5 y V8. Las migraciones PostgreSQL de RLS V4/V6 y consultas de aislamiento se han verificado por separado en PostgreSQL temporal. No se lee `.env`, no se modifica Supabase y no se envían correos en las pruebas. El envío real depende de la configuración de Supabase y SMTP.
 
 Fuentes: [registro Supabase](https://supabase.com/docs/reference/javascript/auth-signup), [confirmación del correo](https://supabase.com/docs/guides/auth/general-configuration).
 

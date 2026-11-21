@@ -87,9 +87,9 @@ El profesor asignado consulta el [progreso y las estadísticas del aula](teacher
 
 ## Persistencia y errores
 
-V5 agrega `classrooms` y `classroom_students`. Las claves compuestas impiden profesores/alumnos de otra escuela, roles incorrectos y ciclos que no coincidan con el aula. La restricción única de matrícula protege también frente a inserciones concurrentes. V6 revoca acceso directo de clientes y activa RLS sin políticas públicas en ambas tablas.
+V8 agrega `classrooms` y `classroom_students`. Las claves compuestas impiden profesores/alumnos de otra escuela, roles incorrectos y ciclos que no coincidan con el aula. La restricción única de matrícula protege también frente a inserciones concurrentes. V9 revoca acceso directo de clientes y activa RLS sin políticas públicas en ambas tablas.
 
-Se mantienen las migraciones anteriores sin cambios. No se requieren variables nuevas en `.env`. Flyway aplicará V5/V6 al arrancar el backend contra Supabase; no se han aplicado al proyecto remoto durante el desarrollo.
+Se mantienen las migraciones anteriores sin cambios. No se requieren variables nuevas en `.env`. Flyway aplicará V8/V9 al arrancar el backend contra Supabase; no se han aplicado al proyecto remoto durante el desarrollo.
 
 - `400`: datos inválidos o campos desconocidos.
 - `401`: token ausente o inválido.
@@ -99,4 +99,4 @@ Se mantienen las migraciones anteriores sin cambios. No se requieren variables n
 
 ## Verificación
 
-`mvn test` ejecuta las pruebas de RBAC y aulas con JWT firmados y H2 temporal; no lee `.env` ni usa Supabase. Las migraciones V1–V11, las consultas de aulas, las restricciones, cascadas y RLS también se comprobaron en PostgreSQL temporal.
+`mvn test` ejecuta las pruebas de RBAC y aulas con JWT firmados y H2 temporal; no lee `.env` ni usa Supabase. Las migraciones V1–V12, las consultas de aulas, las restricciones, cascadas y RLS también se comprobaron en PostgreSQL temporal.

@@ -83,3 +83,7 @@ La configuración inicial genera el manifest y el service worker, y precachea la
 La descarga de lecciones, el almacenamiento de ejercicios y la sincronización del progreso aún deben implementarse en `src/offline/`. No se cachean respuestas de la API ni datos privados automáticamente. Faltan iconos PNG de 192×192 y 512×512 para completar los requisitos de instalación en los navegadores objetivo; ver `frontend/public/icons/README.md`.
 
 Fuentes: [Spring Boot / Java](https://docs.spring.io/spring-boot/3.5/system-requirements.html), [Vite PWA](https://vite-pwa-org.netlify.app/guide/), [Supabase con Spring Boot](https://supabase.com/docs/guides/getting-started/quickstarts/spring-boot).
+
+## Backend de alumnos integrado
+
+Se conserva el backend de alumnos, partidas, XP, niveles, ranking y rachas. Ver [guía del backend](backend/README.md) y [contexto de alumnos](docs/contexto-alumnos.md). Los temas de práctica globales (tabla temas) y los temas publicados por profesores dentro de cursos (tabla topics) conservan ámbitos separados; todavía no existe una vinculación entre ambos. La sincronización de partidas usa POST /api/attempts con UUID idempotente. Las migraciones de alumnos son V1–V2, colegios/directores V3–V6, estadísticas V7 y aulas/profesores V8–V12. El emisor se puede configurar con SUPABASE_AUTH_ISSUER o derivar de SUPABASE_URL.

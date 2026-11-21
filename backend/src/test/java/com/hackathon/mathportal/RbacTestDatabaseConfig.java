@@ -12,10 +12,12 @@ public class RbacTestDatabaseConfig {
     @Bean
     FlywayMigrationStrategy testMigrations(DataSource dataSource) {
         return flyway -> {
-            flyway.migrate(); // V1: common relational schema; PostgreSQL-specific RLS is checked separately.
+            // H2 exercises school authorization; PostgreSQL migrations run in the student integration suite.
             try (var connection = dataSource.getConnection()) {
-                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V3__directors.sql"));
-                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V5__classrooms.sql"));
+                try (var statement = connection.createStatement()) { statement.execute("CREATE SCHEMA IF NOT EXISTS math_portal"); }
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V3__school_rbac.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V5__directors.sql"));
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V8__classrooms.sql"));
                 ScriptUtils.executeSqlScript(connection, new ClassPathResource("teacher-test-schema.sql"));
                 try (var statement = connection.createStatement()) {
                     statement.execute("CREATE SCHEMA IF NOT EXISTS auth");

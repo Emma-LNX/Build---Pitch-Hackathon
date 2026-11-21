@@ -57,7 +57,7 @@ Los permisos remotos se deben comprobar de nuevo al sincronizar la futura cola o
 
 ## Pruebas
 
-`mvn test` ejecuta pruebas HTTP con Spring Security real, JWT firmados, JWKS local y H2 temporal. Aplica V1, V3 y V5 para probar roles, confirmación, propiedad, cruces de colegio, retirada de accesos, campos inyectados y tokens inválidos. Las migraciones PostgreSQL de RLS se verifican separadamente. No se usan credenciales de Supabase.
+`mvn test` ejecuta pruebas HTTP con Spring Security real, JWT firmados, JWKS local y H2 temporal. Aplica V3, V5 y V8 para probar roles, confirmación, propiedad, cruces de colegio, retirada de accesos, campos inyectados y tokens inválidos. Las migraciones PostgreSQL de RLS se verifican separadamente. No se usan credenciales de Supabase.
 
 Fuentes: [JWT de Supabase](https://supabase.com/docs/guides/auth/jwts), [claves de firma](https://supabase.com/docs/guides/auth/signing-keys), [Spring Security](https://docs.spring.io/spring-security/reference/6.5/servlet/oauth2/resource-server/jwt.html).
 
