@@ -35,6 +35,11 @@ spring:
     schemas: math_portal
     locations: classpath:db/migration
 
+# Admin API de Supabase Auth para crear cuentas de alumnos. La clave service_role es solo del backend.
+supabase:
+  url: ${SUPABASE_URL:http://localhost:54321}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+
 management:
   endpoints:
     web:
