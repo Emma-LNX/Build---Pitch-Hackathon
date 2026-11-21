@@ -17,6 +17,8 @@ Docker Compose pasa esos mismos valores como argumentos de compilación. Para de
 
 La clave `SUPABASE_SERVICE_ROLE_KEY` se necesita adicionalmente en el backend para crear cuentas de estudiantes y restablecer contraseñas. No es necesaria para el acceso por correo de profesores/directores, y nunca debe usarse como clave pública.
 
+Se admite también `SUPABASE_SECRET_KEY` como alternativa de servidor y `SUPABASE_JWKS_URL` para indicar explícitamente la URL pública de firma. En ejecución directa de Spring, `SUPABASE_PUBLISHABLE_KEY` sirve como alternativa a `SUPABASE_ANON_KEY`. La URL de Auth y la conexión PostgreSQL deben pertenecer al mismo proyecto. Para equipos sin conectividad IPv6, usar la conexión **Session pooler** del panel Connect, puerto 5432, con su usuario `postgres.<project-ref>` y la contraseña de esa base de datos. No sustituir la contraseña JDBC por una clave de API.
+
 En Supabase → Authentication:
 
 - Habilitar Email y **Confirm email**.
