@@ -2,6 +2,8 @@ package com.hackathon.mathportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -21,6 +23,8 @@ import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
+import com.hackathon.mathportal.modules.parents.mail.ReportEmailSender;
+import com.hackathon.mathportal.modules.parents.service.WeeklyReportScheduler;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +36,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
@@ -75,9 +80,13 @@ class SchoolRbacIntegrationTest {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired WeeklyReportScheduler weeklyReports;
+    @MockitoBean ReportEmailSender reportEmailSender;
 
     @BeforeEach
     void fixtures() {
+        reset(reportEmailSender);
+        jdbc.update("DELETE FROM math_portal.parent_contacts");
         jdbc.update("DELETE FROM math_portal.teacher_focus_topics");
         jdbc.update("DELETE FROM math_portal.partidas");
         jdbc.update("DELETE FROM math_portal.actividad_versiones");
@@ -627,6 +636,133 @@ class SchoolRbacIntegrationTest {
         mvc.perform(get(second + "/progress").contextPath("/api").header("Authorization", token(MULTI)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.topics[0].difficult").value(true));
         assertThat(jdbc.queryForObject("SELECT classroom_id FROM math_portal.teacher_focus_topics", UUID.class)).isEqualTo(id(62));
+    }
+
+    @Test
+    void assignedTeacherRegistersParentAndEmailsRealProgress() throws Exception {
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        sampleAttempts();
+        String base = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A + "/parents";
+        String bearer = token(TEACHER_A);
+        mvc.perform(post(base).contextPath("/api").header("Authorization", bearer).contentType("application/json")
+            .content("{\"fullName\":\"María Pérez\",\"relationship\":\"Madre\",\"email\":\"MADRE@EXAMPLE.COM\",\"phone\":\"+502 1234 5678\"}"))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.email").value("madre@example.com"));
+        UUID parent = jdbc.queryForObject("SELECT id FROM math_portal.parent_contacts", UUID.class);
+        mvc.perform(get(base).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].fullName").value("María Pérez"));
+        mvc.perform(post(base + "/" + parent + "/reports").contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.parentId").value(parent.toString()));
+        verify(reportEmailSender).send(eq("madre@example.com"), contains("Ana"),
+            argThat(body -> body.contains("Partidas realizadas: 2") && body.contains("Sumas")
+                && body.contains("Porcentaje de aprobación: 50.0%")));
+        assertThat(jdbc.queryForObject("SELECT last_report_sent_at FROM math_portal.parent_contacts WHERE id = ?",
+            java.time.OffsetDateTime.class, parent)).isNotNull();
+        mvc.perform(put(base + "/" + parent).contextPath("/api").header("Authorization", bearer)
+            .contentType("application/json")
+            .content("{\"fullName\":\"María Pérez\",\"relationship\":\"Madre\",\"email\":\"nuevo@example.com\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.email").value("nuevo@example.com"));
+        mvc.perform(delete(base + "/" + parent).contextPath("/api").header("Authorization", bearer))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void otherRolesCannotManageParentOrSendReportAndFailuresAreNotRecorded() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        String base = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A + "/parents";
+        mvc.perform(post(base).contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json")
+            .content("{\"fullName\":\"Juan Pérez\",\"relationship\":\"Padre\",\"email\":\"padre@example.com\"}"))
+            .andExpect(status().isCreated());
+        UUID parent = jdbc.queryForObject("SELECT id FROM math_portal.parent_contacts", UUID.class);
+        for (UUID actor : new UUID[] {TEACHER_B, MULTI, STUDENT_A, id(41)}) {
+            mvc.perform(get(base).contextPath("/api").header("Authorization", token(actor)))
+                .andExpect(status().isNotFound());
+            mvc.perform(post(base + "/" + parent + "/reports").contextPath("/api")
+                .header("Authorization", token(actor))).andExpect(status().isNotFound());
+        }
+        verifyNoInteractions(reportEmailSender);
+        doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY))
+            .when(reportEmailSender).send(anyString(), anyString(), anyString());
+        mvc.perform(post(base + "/" + parent + "/reports").contextPath("/api")
+            .header("Authorization", token(TEACHER_A))).andExpect(status().isBadGateway());
+        assertThat(jdbc.queryForObject("SELECT last_report_sent_at FROM math_portal.parent_contacts WHERE id = ?",
+            java.time.OffsetDateTime.class, parent)).isNull();
+    }
+
+    @Test
+    void parentContactFollowsStudentTransferAndOnlyNewTeacherCanUseIt() throws Exception {
+        owner(id(41), SCHOOL_A);
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        room(id(62), SCHOOL_A, MULTI, "PRIMERO", "B", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        String first = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A;
+        String second = classroomsPath(SCHOOL_A) + "/" + id(62) + "/students/" + STUDENT_A;
+        mvc.perform(post(first + "/parents").contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json")
+            .content("{\"fullName\":\"Luis Pérez\",\"relationship\":\"Padre\",\"email\":\"luis@example.com\"}"))
+            .andExpect(status().isCreated());
+        mvc.perform(post(first + "/transfer").contextPath("/api").header("Authorization", token(id(41)))
+            .contentType("application/json").content("{\"targetClassroomId\":\"" + id(62) + "\"}"))
+            .andExpect(status().isNoContent());
+        mvc.perform(get(first + "/parents").contextPath("/api").header("Authorization", token(TEACHER_A)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get(second + "/parents").contextPath("/api").header("Authorization", token(MULTI)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].email").value("luis@example.com"));
+        assertThat(jdbc.queryForObject("SELECT classroom_id FROM math_portal.parent_contacts", UUID.class))
+            .isEqualTo(id(62));
+    }
+
+    @Test
+    void automaticReportIsSentOncePerWeekToCurrentParentContact() throws Exception {
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        sampleAttempts();
+        String base = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A + "/parents";
+        mvc.perform(post(base).contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json")
+            .content("{\"fullName\":\"María Pérez\",\"relationship\":\"Madre\",\"email\":\"madre@example.com\"}"))
+            .andExpect(status().isCreated());
+        when(reportEmailSender.isConfigured()).thenReturn(true);
+        Instant monday = nextMondayMorning();
+        weeklyReports.runAt(monday);
+        weeklyReports.runAt(monday.plus(1, java.time.temporal.ChronoUnit.DAYS));
+        verify(reportEmailSender, times(1)).send(eq("madre@example.com"), contains("Ana"), anyString());
+        weeklyReports.runAt(monday.plus(7, java.time.temporal.ChronoUnit.DAYS));
+        verify(reportEmailSender, times(2)).send(eq("madre@example.com"), contains("Ana"), anyString());
+        assertThat(jdbc.queryForObject("SELECT last_report_sent_at FROM math_portal.parent_contacts",
+            java.time.OffsetDateTime.class).toInstant()).isEqualTo(monday.plus(7, java.time.temporal.ChronoUnit.DAYS));
+    }
+
+    @Test
+    void automaticReportRetriesNextDayAfterMailFailure() throws Exception {
+        room(id(61), SCHOOL_A, TEACHER_A, "PRIMERO", "A", 2026);
+        enrollRoom(SCHOOL_A, id(61), 2026, STUDENT_A);
+        String base = classroomsPath(SCHOOL_A) + "/" + id(61) + "/students/" + STUDENT_A + "/parents";
+        mvc.perform(post(base).contextPath("/api").header("Authorization", token(TEACHER_A))
+            .contentType("application/json")
+            .content("{\"fullName\":\"Luis Pérez\",\"relationship\":\"Padre\",\"email\":\"luis@example.com\"}"))
+            .andExpect(status().isCreated());
+        when(reportEmailSender.isConfigured()).thenReturn(true);
+        doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY))
+            .doNothing().when(reportEmailSender).send(anyString(), anyString(), anyString());
+        Instant monday = nextMondayMorning();
+        weeklyReports.runAt(monday);
+        assertThat(jdbc.queryForObject("SELECT last_report_sent_at FROM math_portal.parent_contacts",
+            java.time.OffsetDateTime.class)).isNull();
+        weeklyReports.runAt(monday.plus(1, java.time.temporal.ChronoUnit.DAYS));
+        verify(reportEmailSender, times(2)).send(eq("luis@example.com"), anyString(), anyString());
+        assertThat(jdbc.queryForObject("SELECT weekly_claimed_at FROM math_portal.parent_contacts",
+            java.time.OffsetDateTime.class)).isNull();
+    }
+
+    private static Instant nextMondayMorning() {
+        var zone = java.time.ZoneId.of("America/Guatemala");
+        return java.time.LocalDate.now(zone)
+            .with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
+            .atTime(8, 0).atZone(zone).toInstant();
     }
 
     private void sampleAttempts() {
