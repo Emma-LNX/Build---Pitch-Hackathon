@@ -1,8 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { loadPublicAuth, publicAuthIssues } from './config/public-auth';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const auth = loadPublicAuth(mode);
+  if (auth.key && publicAuthIssues(auth).some((issue) => issue.includes('clave'))) {
+    throw new Error('La configuración del frontend requiere una clave publishable o anon válida.');
+  }
+  return {
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(auth.url),
+    'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(auth.key),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(auth.key),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -34,4 +45,5 @@ export default defineConfig({
     }),
   ],
   server: { proxy: { '/api': 'http://localhost:8081' } },
+  };
 });

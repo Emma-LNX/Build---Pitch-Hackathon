@@ -7,9 +7,10 @@ services:
       SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD:?Completar SUPABASE_DB_PASSWORD en .env}
       SUPABASE_URL: ${SUPABASE_URL:-http://localhost:54321}
       SUPABASE_AUTH_ISSUER: ${SUPABASE_AUTH_ISSUER:-${SUPABASE_URL:-http://localhost:54321}/auth/v1}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:-${SUPABASE_AUTH_ISSUER:-${SUPABASE_URL:-http://localhost:54321}/auth/v1}/.well-known/jwks.json}
       # Cuentas de estudiantes creadas por el profesor (solo en el servidor)
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-${SUPABASE_PUBLISHABLE_KEY:-}}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SECRET_KEY:-}}
       STUDENT_EMAIL_DOMAIN: ${STUDENT_EMAIL_DOMAIN:-alumnos.mayamente.invalid}
       REPORT_SMTP_HOST: ${REPORT_SMTP_HOST:-}
       REPORT_SMTP_PORT: ${REPORT_SMTP_PORT:-587}
@@ -26,8 +27,9 @@ services:
       context: ./frontend
       args:
         # Solo valores públicos: URL del proyecto y clave anon
-        VITE_SUPABASE_URL: ${SUPABASE_URL:-}
-        VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-${SUPABASE_URL:-}}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY:-}}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_PUBLISHABLE_KEY:-}}
     ports:
       - "8080:80"
     volumes:

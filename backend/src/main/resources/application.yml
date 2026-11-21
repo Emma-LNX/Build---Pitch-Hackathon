@@ -14,7 +14,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}
-          jwk-set-uri: ${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}/.well-known/jwks.json
+          jwk-set-uri: ${SUPABASE_JWKS_URL:${SUPABASE_AUTH_ISSUER:${SUPABASE_URL:http://localhost:54321}/auth/v1}/.well-known/jwks.json}
           audiences: authenticated
           jws-algorithms: ES256,RS256
   datasource:
@@ -39,13 +39,13 @@ mayamente:
   auth:
     # Solo en el servidor. Sin estas variables, crear cuentas o iniciar sesión responde 503.
     supabase-url: ${SUPABASE_URL:}
-    anon-key: ${SUPABASE_ANON_KEY:}
-    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+    anon-key: ${SUPABASE_ANON_KEY:${SUPABASE_PUBLISHABLE_KEY:}}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:${SUPABASE_SECRET_KEY:}}
     student-email-domain: ${STUDENT_EMAIL_DOMAIN:alumnos.mayamente.invalid}
 # Admin API de Supabase Auth para crear cuentas de alumnos. La clave service_role es solo del backend.
 supabase:
   url: ${SUPABASE_URL:http://localhost:54321}
-  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:${SUPABASE_SECRET_KEY:}}
 
 management:
   endpoints:

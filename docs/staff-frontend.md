@@ -11,7 +11,13 @@ El navegador habla directamente con Supabase Auth para registrarse, confirmar el
 | `VITE_SUPABASE_URL` | `frontend/.env.local` (desarrollo) o argumento de build | `https://TU_PROYECTO.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | igual | Clave pública `anon` del proyecto |
 
-Con Docker Compose se toman de `SUPABASE_URL` y `SUPABASE_ANON_KEY` del `.env` raíz. **Nunca** se pasa la clave service-role al frontend; esa solo la usa el backend para el módulo de cuentas de estudiantes.
+Vite lee también el `.env` raíz: `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` o `SUPABASE_ANON_KEY`. Los valores públicos no vacíos de `frontend/.env.local` tienen prioridad. Únicamente se incorporan al navegador la URL y la clave pública; las credenciales JDBC y `service_role` permanecen en el servidor.
+
+Docker Compose pasa esos mismos valores como argumentos de compilación. Para desplegar, ejecutar primero `pnpm check:config` dentro de `frontend`; el comando muestra qué dato falta sin imprimir claves. El Dockerfile ejecuta esa comprobación antes del build para evitar publicar un acceso sin configurar. Cambiar una variable pública requiere volver a compilar la imagen del frontend.
+
+La clave `SUPABASE_SERVICE_ROLE_KEY` se necesita adicionalmente en el backend para crear cuentas de estudiantes y restablecer contraseñas. No es necesaria para el acceso por correo de profesores/directores, y nunca debe usarse como clave pública.
+
+Se admite también `SUPABASE_SECRET_KEY` como alternativa de servidor y `SUPABASE_JWKS_URL` para indicar explícitamente la URL pública de firma. En ejecución directa de Spring, `SUPABASE_PUBLISHABLE_KEY` sirve como alternativa a `SUPABASE_ANON_KEY`. La URL de Auth y la conexión PostgreSQL deben pertenecer al mismo proyecto. Para equipos sin conectividad IPv6, usar la conexión **Session pooler** del panel Connect, puerto 5432, con su usuario `postgres.<project-ref>` y la contraseña de esa base de datos. No sustituir la contraseña JDBC por una clave de API.
 
 En Supabase → Authentication:
 
