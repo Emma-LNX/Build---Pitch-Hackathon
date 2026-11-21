@@ -11,7 +11,6 @@ import {
 import { dayKey, uuid } from '../../lib/random';
 import {
   commitLessonResult,
-  countPending,
   EMPTY_STATS,
   loadStudent,
   requestPersistentStorage,
@@ -201,10 +200,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     requestPersistentStorage();
-    countPending().then((pending) => {
-      commit({ ready: true, pending });
-      void sync();
-    });
+    commit({ ready: true });
+    void sync();
     const onOnline = () => void sync();
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);

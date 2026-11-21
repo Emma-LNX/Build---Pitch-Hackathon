@@ -1,6 +1,6 @@
-import { api, getStudentAccessToken } from '../../lib/api';
+import { api, getStudentAccessToken, renewStudentAccessToken, studentAccessToken } from '../../lib/api';
 import { markAnswersSynced, unsyncedAnswers } from '../../offline/storage/db';
-import type { CategoryId } from '../../types';
+import type { AnswerRecord, CategoryId } from '../../types';
 import { CATEGORIES } from '../curriculum/catalog';
 
 const BATCH = 200;
@@ -10,7 +10,17 @@ const TIMEOUT_MS = 2500;
 async function token(): Promise<string | null> {
   if (!navigator.onLine) return null;
   try {
-    return getStudentAccessToken();
+    return await studentAccessToken();
+  } catch {
+    return null;
+  }
+}
+
+/** Cuenta dueña del token (`sub` del JWT de Supabase): nunca se suben respuestas con el token de otra cuenta. */
+function subjectOf(accessToken: string): string | null {
+  try {
+    const payload = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload)).sub ?? null;
   } catch {
     return null;
   }
@@ -32,24 +42,34 @@ async function call(path: string, accessToken: string, init: RequestInit = {}): 
   }
 }
 
+function send(accessToken: string, batch: AnswerRecord[]) {
+  return call('/estadisticas/me/respuestas', accessToken, {
+    method: 'POST',
+    // Respuesta DTO no admite `skill`, `syncedAt` ni identificadores locales.
+    body: JSON.stringify({ respuestas: batch.map(({ id, sessionId, source, category, exercise, difficulty, interaction, correct, errorTag, timeMs, answeredAt }) =>
+      ({ id, sessionId, source, category, exercise, difficulty, interaction, correct, errorTag, timeMs, answeredAt })) }),
+  });
+}
+
 /**
  * Sube al módulo de estadísticas las respuestas que aún no se enviaron.
  * Devuelve los ids guardados en el servidor y la fecha con que quedaron marcados.
  */
 export async function uploadAnswers(studentId: string): Promise<{ ids: string[]; syncedAt: string } | null> {
-  const accessToken = await token();
-  if (!accessToken) return null;
+  let accessToken = await token();
+  if (!accessToken || subjectOf(accessToken) !== studentId) return null;
   const pending = await unsyncedAnswers(studentId);
   const ids: string[] = [];
   for (let i = 0; i < pending.length; i += BATCH) {
     if (getStudentAccessToken() !== accessToken) break;
     const batch = pending.slice(i, i + BATCH);
-    const response = await call('/estadisticas/me/respuestas', accessToken, {
-      method: 'POST',
-      // Respuesta DTO no admite `skill`, `syncedAt` ni identificadores locales.
-      body: JSON.stringify({ respuestas: batch.map(({ id, sessionId, source, category, exercise, difficulty, interaction, correct, errorTag, timeMs, answeredAt }) =>
-        ({ id, sessionId, source, category, exercise, difficulty, interaction, correct, errorTag, timeMs, answeredAt })) }),
-    });
+    let response = await send(accessToken, batch);
+    if (response?.status === 401) {
+      const renewed = await renewStudentAccessToken();
+      if (!renewed || subjectOf(renewed) !== studentId) break;
+      accessToken = renewed;
+      response = await send(accessToken, batch);
+    }
     if (!response?.ok) break;
     ids.push(...batch.map((a) => a.id));
   }

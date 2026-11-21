@@ -36,6 +36,22 @@ export function setTokenRefresher(fn: (() => Promise<string | null>) | null) {
   refresher = fn;
 }
 
+let refreshing: Promise<string | null> | null = null;
+
+/** Una sola renovación a la vez: el refresh token rota en cada uso. */
+export function renewStudentAccessToken(): Promise<string | null> {
+  if (!refresher) return Promise.resolve(null);
+  refreshing ??= refresher().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+/** Token del estudiante; si entró sin internet aún no hay uno y se pide con su sesión guardada. */
+export async function studentAccessToken(): Promise<string | null> {
+  return accessToken ?? renewStudentAccessToken();
+}
+
 export interface RequestOptions {
   method?: string;
   body?: unknown;
@@ -66,7 +82,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     response = await send(token ?? accessToken);
     // Token vencido: renovar una vez y reintentar (solo sesión del estudiante)
     if (response.status === 401 && auth && token === undefined && refresher) {
-      const renewed = await refresher();
+      const renewed = await renewStudentAccessToken();
       if (renewed) response = await send(renewed);
     }
   } catch (error) {

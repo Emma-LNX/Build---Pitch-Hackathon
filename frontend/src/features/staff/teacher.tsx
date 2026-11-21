@@ -130,10 +130,11 @@ function CreateClassroom({ schoolId, onCreated }: { schoolId: string; onCreated:
   const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const clearSuccess = useCallback(() => setSuccess(null), []);
+  const validYear = /^20\d\d$/.test(year);
 
   async function create(e: FormEvent) {
     e.preventDefault();
-    if (busy || !grade.trim() || !section.trim() || !session) return;
+    if (busy || !grade.trim() || !section.trim() || !validYear || !session) return;
     setBusy(true);
     setError(null);
     try {
@@ -163,7 +164,7 @@ function CreateClassroom({ schoolId, onCreated }: { schoolId: string; onCreated:
       {Boolean(error) && (
         <p className="form-error">{errorMessage(error, { conflict: 'Ya existe un aula con ese grado y sección en este ciclo.' })}</p>
       )}
-      <button className="btn btn-primary" disabled={busy || !online || !grade.trim() || !section.trim() || year.length !== 4}>
+      <button className="btn btn-primary" disabled={busy || !online || !grade.trim() || !section.trim() || !validYear}>
         {busy ? 'Creando…' : 'Crear aula'}
       </button>
     </form>

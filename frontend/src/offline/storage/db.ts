@@ -71,8 +71,10 @@ export function getDB() {
         db.createObjectStore('rewards', { keyPath: 'attemptId' });
       }
       if (!db.objectStoreNames.contains('sessions')) db.createObjectStore('sessions', { keyPath: 'studentId' });
-      db.createObjectStore('studentAnswers', { keyPath: 'id' }).createIndex('by-student', 'studentId');
-      db.createObjectStore('studentMastery', { keyPath: ['studentId', 'category'] });
+      if (!db.objectStoreNames.contains('studentAnswers')) {
+        db.createObjectStore('studentAnswers', { keyPath: 'id' }).createIndex('by-student', 'studentId');
+      }
+      if (!db.objectStoreNames.contains('studentMastery')) db.createObjectStore('studentMastery', { keyPath: ['studentId', 'category'] });
       if ((db.objectStoreNames as DOMStringList).contains('lessons')) await migrateV1(db, tx);
     },
   });

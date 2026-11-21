@@ -9,6 +9,7 @@ const profile = (studentId: string): Profile => ({ studentId, name: studentId, u
 const answer = (id: string): AnswerRecord => ({ id, sessionId: `session-${id}`, source: 'LECCION',
   exercise: 'suma', skill: 'suma', category: 'suma-resta', difficulty: 2, interaction: 'choice',
   correct: true, errorTag: null, timeMs: 1000, answeredAt: '2026-11-21T18:00:00Z' });
+const jwt = (sub: string) => `header.${btoa(JSON.stringify({ sub })).replace(/=+$/, '')}.firma`;
 
 beforeEach(() => {
   vi.resetModules();
@@ -90,7 +91,7 @@ describe('integración de progreso, aprendizaje y guardarropas', () => {
         wardrobe: { studentId, unlocked: [], equipped: 'initial', celebrated: [] }, records: [answer(studentId)], outcome: {} });
     }
     const api = await import('../src/lib/api');
-    api.setAccessToken('ana-token');
+    api.setAccessToken(jwt('ana'));
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ recibidas: 1, nuevas: 1 })));
     vi.stubGlobal('fetch', fetcher);
     const { uploadAnswers } = await import('../src/features/adaptive/serverSync');
@@ -104,5 +105,36 @@ describe('integración de progreso, aprendizaje y guardarropas', () => {
     expect(sent[0]).not.toHaveProperty('syncedAt');
     expect(await db.unsyncedAnswers('ana')).toHaveLength(0);
     expect(await db.unsyncedAnswers('bea')).toHaveLength(1);
+  });
+
+  it('si entró sin internet, al volver la conexión renueva el token con la sesión guardada y sube', async () => {
+    const db = await import('../src/offline/storage/db');
+    await db.commitLessonResult({ studentId: 'ana', attemptId: 'ana', stats: { xp: 10, streak: 1, lastActiveDay: 'now' },
+      wardrobe: { studentId: 'ana', unlocked: [], equipped: 'initial', celebrated: [] }, records: [answer('ana')], outcome: {} });
+    const api = await import('../src/lib/api');
+    const refresher = vi.fn(async () => {
+      api.setAccessToken(jwt('ana'));
+      return jwt('ana');
+    });
+    api.setTokenRefresher(refresher);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ recibidas: 1, nuevas: 1 }))));
+    const { uploadAnswers } = await import('../src/features/adaptive/serverSync');
+    expect((await uploadAnswers('ana'))?.ids).toEqual(['ana']);
+    expect(refresher).toHaveBeenCalledTimes(1);
+    expect(await db.unsyncedAnswers('ana')).toHaveLength(0);
+  });
+
+  it('no sube respuestas con el token de otra cuenta', async () => {
+    const db = await import('../src/offline/storage/db');
+    await db.commitLessonResult({ studentId: 'ana', attemptId: 'ana', stats: { xp: 10, streak: 1, lastActiveDay: 'now' },
+      wardrobe: { studentId: 'ana', unlocked: [], equipped: 'initial', celebrated: [] }, records: [answer('ana')], outcome: {} });
+    const api = await import('../src/lib/api');
+    api.setAccessToken(jwt('bea'));
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    const { uploadAnswers } = await import('../src/features/adaptive/serverSync');
+    expect(await uploadAnswers('ana')).toBeNull();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(await db.unsyncedAnswers('ana')).toHaveLength(1);
   });
 });

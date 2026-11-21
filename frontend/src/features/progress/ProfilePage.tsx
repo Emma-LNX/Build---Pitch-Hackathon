@@ -146,8 +146,8 @@ export function ProfilePage() {
         {pending === 0
           ? 'Todo tu avance está guardado.'
           : online
-            ? `Enviando ${pending} ${pending === 1 ? 'lección' : 'lecciones'} a tu maestro…`
-            : `${pending} ${pending === 1 ? 'lección guardada' : 'lecciones guardadas'} en este teléfono. Se enviarán cuando haya internet.`}
+            ? `Enviando ${pending} ${pending === 1 ? 'respuesta' : 'respuestas'} a tu maestro…`
+            : `${pending} ${pending === 1 ? 'respuesta guardada' : 'respuestas guardadas'} en este teléfono. Se enviarán cuando haya internet.`}
       </p>
     </div>
   );
