@@ -13,6 +13,7 @@ import { ProgressProvider, useProgress } from '../features/progress/ProgressCont
 import { StaffApp } from '../features/staff/StaffApp';
 import { MapPage } from '../features/topics/MapPage';
 import { WardrobePage } from '../features/wardrobe/WardrobePage';
+import { DailyCheckInGate } from '../features/wellbeing/DailyCheckInGate';
 
 export function App() {
   return (
@@ -55,11 +56,11 @@ function AppRoutes() {
         <Route path="perfil/guardarropa" element={<WardrobePage />} />
         <Route path="progreso" element={<ProgressPage />} />
       </Route>
-      <Route path="leccion/:lessonId" element={<LessonPage />} />
+      <Route path="leccion/:lessonId" element={<DailyCheckInGate><LessonPage /></DailyCheckInGate>} />
       <Route path="profe/*" element={<StaffApp />} />
       <Route path="profesor/*" element={<Navigate to="/profe" replace />} />
-      <Route path="diagnostico" element={<DiagnosticPage />} />
-      <Route path="mision" element={<MissionPage />} />
+      <Route path="diagnostico" element={<DailyCheckInGate><DiagnosticPage /></DailyCheckInGate>} />
+      <Route path="mision" element={<DailyCheckInGate><MissionPage /></DailyCheckInGate>} />
       <Route path="mi-aprendizaje" element={<LearningReviewPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -2,6 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
   AnswerRecord,
   CategoryMastery,
+  DailyCheckIn,
   LessonProgress,
   PendingAttempt,
   Profile,
@@ -46,10 +47,11 @@ interface MathPortalDB extends DBSchema {
   outbox: { key: string; value: PendingAttempt };
   studentAnswers: { key: string; value: AnswerRecord & { studentId: string }; indexes: { 'by-student': string } };
   studentMastery: { key: [string, string]; value: CategoryMastery & { studentId: string } };
+  dailyCheckIns: { key: [string, string]; value: DailyCheckIn };
 }
 
 const DB_NAME = 'math-portal';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase<MathPortalDB>> | null = null;
 
@@ -75,7 +77,13 @@ export function getDB() {
         db.createObjectStore('studentAnswers', { keyPath: 'id' }).createIndex('by-student', 'studentId');
       }
       if (!db.objectStoreNames.contains('studentMastery')) db.createObjectStore('studentMastery', { keyPath: ['studentId', 'category'] });
+      if (!db.objectStoreNames.contains('dailyCheckIns')) db.createObjectStore('dailyCheckIns', { keyPath: ['studentId', 'date'] });
       if ((db.objectStoreNames as DOMStringList).contains('lessons')) await migrateV1(db, tx);
+    },
+    blocking() {
+      // Otra pestaña abrió una versión nueva de la app: sin soltar la base, esa pestaña no puede actualizarla.
+      void dbPromise?.then((db) => db.close());
+      window.location.reload();
     },
   });
   return dbPromise;
@@ -288,4 +296,36 @@ export async function markAnswersSynced(studentId: string, ids: string[], synced
     if (answer?.studentId === studentId) await tx.store.put({ ...answer, syncedAt });
   }));
   await tx.done;
+}
+
+const checkInsOf = (studentId: string) => IDBKeyRange.bound([studentId, ''], [studentId, '\uffff']);
+
+export async function getDailyCheckIn(studentId: string, date: string): Promise<DailyCheckIn | undefined> {
+  return (await getDB()).get('dailyCheckIns', [studentId, date]);
+}
+
+/**
+ * Guarda el registro del día si aún no existe: la primera respuesta prevalece.
+ * Borra los días anteriores ya enviados (el teléfono puede ser compartido); los pendientes se conservan.
+ */
+export async function saveDailyCheckIn(entry: DailyCheckIn): Promise<DailyCheckIn> {
+  const db = await getDB();
+  const tx = db.transaction('dailyCheckIns', 'readwrite');
+  const saved = await tx.store.get([entry.studentId, entry.date]);
+  if (!saved) await tx.store.add(entry);
+  for (const old of await tx.store.getAll(checkInsOf(entry.studentId))) {
+    if (old.date !== entry.date && old.synced) await tx.store.delete([old.studentId, old.date]);
+  }
+  await tx.done;
+  return saved ?? entry;
+}
+
+export async function putDailyCheckIn(entry: DailyCheckIn) {
+  await (await getDB()).put('dailyCheckIns', entry);
+}
+
+/** Registros de la cuenta que faltan por enviar, del más antiguo al más reciente. */
+export async function pendingDailyCheckIns(studentId: string): Promise<DailyCheckIn[]> {
+  const all = await (await getDB()).getAll('dailyCheckIns', checkInsOf(studentId));
+  return all.filter((e) => !e.synced && !e.syncError).sort((a, b) => a.date.localeCompare(b.date));
 }

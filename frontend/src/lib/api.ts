@@ -52,6 +52,16 @@ export async function studentAccessToken(): Promise<string | null> {
   return accessToken ?? renewStudentAccessToken();
 }
 
+/** Cuenta dueña del token (`sub` del JWT de Supabase): nunca se envían datos con el token de otra cuenta. */
+export function tokenSubject(token: string): string | null {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload)).sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface RequestOptions {
   method?: string;
   body?: unknown;

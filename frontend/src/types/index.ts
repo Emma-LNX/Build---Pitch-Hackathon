@@ -154,6 +154,24 @@ export interface Stats {
   lastActiveDay: string | null;
 }
 
+export type FoodAnswer = 'SUFICIENTE' | 'POCO' | 'NO_HE_COMIDO' | 'PREFIERO_NO_RESPONDER';
+export type MoodAnswer = 'FELIZ' | 'TRANQUILO' | 'TRISTE' | 'PREOCUPADO' | 'CANSADO' | 'PREFIERO_NO_RESPONDER';
+
+/** Registro de bienestar del día (sueño, alimentación y ánimo). No da XP ni lo ven los profesores. */
+export interface DailyCheckIn {
+  studentId: string;
+  /** YYYY-MM-DD en la zona del alumno. */
+  date: string;
+  /** `null` = prefiere no responder (no equivale a cero horas). */
+  sleepHours: number | null;
+  food: FoodAnswer;
+  mood: MoodAnswer;
+  timeZone: string;
+  createdAt: string;
+  synced?: boolean;
+  syncError?: string;
+}
+
 export interface LessonProgress {
   lessonId: string;
   bestStars: number;

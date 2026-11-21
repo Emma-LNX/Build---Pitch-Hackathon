@@ -22,6 +22,7 @@ import {
 import type { AnswerRecord, CategoryId, CategoryMastery, Gender, LessonProgress, Profile, SessionKind, SkillId, SkillProgress, Stats, WardrobeState } from '../../types';
 import { computeMastery } from '../adaptive/engine';
 import { uploadAnswers } from '../adaptive/serverSync';
+import { syncDailyCheckIns } from '../../offline/sync/dailyCheckIns';
 import {
   adaptToGender,
   applyUnlocks,
@@ -191,7 +192,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const sync = useCallback(async () => {
     const id = stateRef.current.profile?.studentId;
     if (!id) return;
-    const uploaded = await uploadAnswers(id);
+    const [uploaded] = await Promise.all([uploadAnswers(id), syncDailyCheckIns(id).catch(() => undefined)]);
     const pending = (await unsyncedAnswers(id)).length;
     if (stateRef.current.profile?.studentId !== id) return;
     const sent = new Set(uploaded?.ids);

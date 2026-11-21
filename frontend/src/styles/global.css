@@ -1577,6 +1577,13 @@ img, svg { display: block; }
 .level-mazorca { background: #c9ecb2; }
 .learning-note { margin: 8px 0 0; font-size: .92rem; }
 
+/* ---------- Registro diario de bienestar ---------- */
+.daily-check-in { gap: 22px; }
+.daily-check-in .question-prompt { margin: 0; }
+.daily-check-in .hint { margin: 0; }
+.daily-check-in .options { margin-top: 4px; }
+.daily-option { min-height: 58px; font-size: 1.1rem; }
+
 /* ---------- Animaciones (breves, solo transform/opacity) ---------- */
 @keyframes bob { 50% { transform: translateY(-5px); } }
 @keyframes bob-x { 50% { transform: translate(-50%, -4px); } }

@@ -1,4 +1,4 @@
-import { api, getStudentAccessToken, renewStudentAccessToken, studentAccessToken } from '../../lib/api';
+import { api, getStudentAccessToken, renewStudentAccessToken, studentAccessToken, tokenSubject as subjectOf } from '../../lib/api';
 import { markAnswersSynced, unsyncedAnswers } from '../../offline/storage/db';
 import type { AnswerRecord, CategoryId } from '../../types';
 import { CATEGORIES } from '../curriculum/catalog';
@@ -11,16 +11,6 @@ async function token(): Promise<string | null> {
   if (!navigator.onLine) return null;
   try {
     return await studentAccessToken();
-  } catch {
-    return null;
-  }
-}
-
-/** Cuenta dueña del token (`sub` del JWT de Supabase): nunca se suben respuestas con el token de otra cuenta. */
-function subjectOf(accessToken: string): string | null {
-  try {
-    const payload = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(payload)).sub ?? null;
   } catch {
     return null;
   }
