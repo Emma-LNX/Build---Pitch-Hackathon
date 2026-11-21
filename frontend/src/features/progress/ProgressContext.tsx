@@ -4,11 +4,25 @@ import {
   EMPTY_STATS,
   loadSnapshot,
   requestPersistentStorage,
+  saveLearning,
   saveLessonResult,
   saveProfile as persistProfile,
 } from '../../offline/storage/db';
 import { syncPendingAttempts } from '../../offline/sync/syncQueue';
-import type { LessonProgress, Profile, SkillId, SkillProgress, Stats } from '../../types';
+import type {
+  AnswerRecord,
+  CategoryId,
+  CategoryMastery,
+  LessonProgress,
+  Profile,
+  SessionKind,
+  SkillId,
+  SkillProgress,
+  Stats,
+} from '../../types';
+import { computeMastery } from '../adaptive/engine';
+
+type MasteryMap = Partial<Record<CategoryId, CategoryMastery>>;
 
 export const XP_PER_LEVEL = 100;
 export const XP_PER_CORRECT = 10;
@@ -64,7 +78,7 @@ export function weekActivity(stats: Stats, now = new Date()): WeekDay[] {
 
 export interface LessonResultInput {
   lessonId: string;
-  answers: { skill: SkillId; correct: boolean }[];
+  records: AnswerRecord[];
 }
 
 export interface LessonOutcome {
@@ -74,6 +88,13 @@ export interface LessonOutcome {
   leveledUp: boolean;
 }
 
+export interface SessionOutcome {
+  xpEarned: number;
+  leveledUp: boolean;
+  before: MasteryMap;
+  after: MasteryMap;
+}
+
 interface ProgressState {
   ready: boolean;
   profile: Profile | null;
@@ -81,13 +102,31 @@ interface ProgressState {
   lessons: Record<string, LessonProgress>;
   skills: Partial<Record<SkillId, SkillProgress>>;
   pending: number;
+  answers: AnswerRecord[];
+  mastery: MasteryMap;
+  diagnosticDoneAt: string | null;
 }
 
 interface ProgressContextValue extends ProgressState {
   saveProfile: (profile: Profile) => Promise<void>;
   completeLesson: (input: LessonResultInput) => Promise<LessonOutcome>;
+  recordSession: (kind: Exclude<SessionKind, 'LECCION'>, records: AnswerRecord[]) => Promise<SessionOutcome>;
   sync: () => Promise<void>;
 }
+
+/** Suma XP y actualiza la racha con el reloj del teléfono. */
+function nextStats(prev: Stats, xpEarned: number): Stats {
+  const today = dayKey();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  let streak = prev.streak;
+  if (prev.lastActiveDay !== today) {
+    streak = prev.lastActiveDay === dayKey(yesterday) ? streak + 1 : 1;
+  }
+  return { xp: prev.xp + xpEarned, streak, lastActiveDay: today };
+}
+
+const XP_DIAGNOSTIC = 50;
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
@@ -99,6 +138,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     lessons: {},
     skills: {},
     pending: 0,
+    answers: [],
+    mastery: {},
+    diagnosticDoneAt: null,
   });
 
   const sync = useCallback(async () => {
@@ -116,6 +158,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lessons: Object.fromEntries(snap.lessons.map((l) => [l.lessonId, l])),
         skills: Object.fromEntries(snap.skills.map((s) => [s.skill, s])),
         pending: snap.pending,
+        answers: snap.answers,
+        mastery: computeMastery(snap.answers),
+        diagnosticDoneAt: snap.diagnosticDoneAt,
       });
       void sync();
     });
@@ -130,7 +175,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeLesson = useCallback(
-    async ({ lessonId, answers }: LessonResultInput): Promise<LessonOutcome> => {
+    async ({ lessonId, records }: LessonResultInput): Promise<LessonOutcome> => {
+      const answers = records.map((r) => ({ skill: r.skill, correct: r.correct }));
       const correct = answers.filter((a) => a.correct).length;
       const total = answers.length;
       const stars = starsFor(correct, total);
@@ -138,14 +184,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       const xpEarned = correct * XP_PER_CORRECT + (passed ? XP_LESSON_BONUS : 0);
 
       const prevStats = state.stats;
-      const today = dayKey();
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      let streak = prevStats.streak;
-      if (prevStats.lastActiveDay !== today) {
-        streak = prevStats.lastActiveDay === dayKey(yesterday) ? streak + 1 : 1;
-      }
-      const stats: Stats = { xp: prevStats.xp + xpEarned, streak, lastActiveDay: today };
+      const stats = nextStats(prevStats, xpEarned);
+      const allAnswers = [...state.answers, ...records];
+      const mastery = computeMastery(allAnswers);
 
       const prevLesson = state.lessons[lessonId];
       const lesson: LessonProgress = {
@@ -171,6 +212,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         skillResults: answers,
         createdAt: new Date().toISOString(),
       });
+      await saveLearning(records, Object.values(mastery));
 
       setState((s) => ({
         ...s,
@@ -178,6 +220,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lessons: { ...s.lessons, [lessonId]: lesson },
         skills: skillMap,
         pending: s.pending + 1,
+        answers: allAnswers,
+        mastery,
       }));
       void sync();
 
@@ -191,7 +235,41 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [state, sync],
   );
 
-  const value = useMemo(() => ({ ...state, saveProfile, completeLesson, sync }), [state, saveProfile, completeLesson, sync]);
+  const recordSession = useCallback(
+    async (kind: Exclude<SessionKind, 'LECCION'>, records: AnswerRecord[]): Promise<SessionOutcome> => {
+      const correct = records.filter((r) => r.correct).length;
+      const xpEarned =
+        kind === 'DIAGNOSTICO'
+          ? XP_DIAGNOSTIC
+          : correct * XP_PER_CORRECT + (correct >= records.length * 0.75 ? XP_LESSON_BONUS : 0);
+      const stats = nextStats(state.stats, xpEarned);
+      const allAnswers = [...state.answers, ...records];
+      const mastery = computeMastery(allAnswers);
+      const diagnosticDoneAt = kind === 'DIAGNOSTICO' ? new Date().toISOString() : undefined;
+
+      await saveLearning(records, Object.values(mastery), { stats, diagnosticDoneAt });
+      setState((s) => ({
+        ...s,
+        stats,
+        answers: allAnswers,
+        mastery,
+        diagnosticDoneAt: diagnosticDoneAt ?? s.diagnosticDoneAt,
+      }));
+
+      return {
+        xpEarned,
+        leveledUp: levelFor(stats.xp).level > levelFor(state.stats.xp).level,
+        before: state.mastery,
+        after: mastery,
+      };
+    },
+    [state],
+  );
+
+  const value = useMemo(
+    () => ({ ...state, saveProfile, completeLesson, recordSession, sync }),
+    [state, saveProfile, completeLesson, recordSession, sync],
+  );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }

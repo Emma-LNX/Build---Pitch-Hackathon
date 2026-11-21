@@ -34,7 +34,7 @@ const STATE_LABELS: Record<StationState, string> = {
 };
 
 export function MapPage() {
-  const { lessons, profile, stats } = useProgress();
+  const { lessons, profile, stats, diagnosticDoneAt } = useProgress();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
@@ -152,6 +152,14 @@ export function MapPage() {
             );
           })}
         </ol>
+
+        <button
+          className={`mission-fab${diagnosticDoneAt ? '' : ' mission-fab-new'}`}
+          onClick={() => navigate(diagnosticDoneAt ? '/mision' : '/diagnostico')}
+        >
+          <StarIcon className="mission-fab-icon" filled />
+          {diagnosticDoneAt ? 'Misión del día' : 'Expedición'}
+        </button>
       </section>
 
       {selectedIndex >= 0 && (

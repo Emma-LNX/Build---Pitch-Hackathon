@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { TempleArt } from '../components/TempleArt';
+import { DiagnosticPage } from '../features/adaptive/DiagnosticPage';
+import { MissionPage } from '../features/adaptive/MissionPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { WelcomePage } from '../features/auth/WelcomePage';
 import { LessonPage } from '../features/exercises/LessonPage';
@@ -47,6 +49,8 @@ function AppRoutes() {
       <Route path="bienvenida" element={<WelcomePage />} />
       <Route path="entrar" element={<LoginPage />} />
       <Route path="leccion/:lessonId" element={<LessonPage />} />
+      <Route path="diagnostico" element={<DiagnosticPage />} />
+      <Route path="mision" element={<MissionPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

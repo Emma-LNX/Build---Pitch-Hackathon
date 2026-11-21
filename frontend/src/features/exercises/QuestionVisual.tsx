@@ -1,4 +1,5 @@
 import type { Visual } from '../../types';
+import { MayaNumeral } from '../games/MayaNumeral';
 
 const INK = '#183B4A';
 const FILL = '#F5C451';
@@ -14,6 +15,8 @@ export function QuestionVisual({ visual }: { visual: Visual }) {
       return <Rect {...visual} />;
     case 'polygon':
       return <Polygon sides={visual.sides} />;
+    case 'maya':
+      return <MayaNumeral value={visual.value} />;
   }
 }
 
