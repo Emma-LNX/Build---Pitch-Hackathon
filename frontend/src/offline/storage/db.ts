@@ -105,6 +105,23 @@ export async function saveLessonResult(
 }
 
 /** Guarda las respuestas de una sesión, el dominio recalculado y, si aplica, las estadísticas. */
+export async function unsyncedAnswers(): Promise<AnswerRecord[]> {
+  const db = await getDB();
+  return (await db.getAll('answers')).filter((a) => !a.syncedAt);
+}
+
+export async function markAnswersSynced(ids: string[], syncedAt: string) {
+  const db = await getDB();
+  const tx = db.transaction('answers', 'readwrite');
+  await Promise.all([
+    ...ids.map(async (id) => {
+      const answer = await tx.store.get(id);
+      if (answer) await tx.store.put({ ...answer, syncedAt });
+    }),
+    tx.done,
+  ]);
+}
+
 export async function saveLearning(
   answers: AnswerRecord[],
   mastery: CategoryMastery[],

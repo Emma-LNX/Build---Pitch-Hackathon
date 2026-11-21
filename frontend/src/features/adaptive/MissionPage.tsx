@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Avatar } from '../../components/Avatar';
 import { Platform } from '../../components/GameArt';
+import { TempleArt } from '../../components/TempleArt';
 import type { AnswerRecord, CategoryId, Difficulty } from '../../types';
 import { findCategory } from '../curriculum/catalog';
 import { generateQuestion } from '../exercises/generators';
@@ -9,6 +10,7 @@ import { SessionRunner } from '../exercises/SessionRunner';
 import { useProgress, type SessionOutcome } from '../progress/ProgressContext';
 import { planMission, type PlannedItem } from './engine';
 import { MasteryList } from './MasteryList';
+import { fetchRecommended } from './serverSync';
 
 /** Si falló los dos últimos retos de esa categoría, baja un escalón para no frustrarlo. */
 function adjust(item: PlannedItem, history: AnswerRecord[]): Difficulty {
@@ -23,13 +25,37 @@ export function MissionPage() {
   const [params] = useSearchParams();
   const only = findCategory(params.get('categoria'))?.id;
   const [round, setRound] = useState(0);
-  return <MissionRun key={`${only ?? 'mix'}-${round}`} only={only} onAgain={() => setRound((r) => r + 1)} />;
+  // Recomendación del módulo de estadísticas; `null` = sin sesión o sin servidor, se usa el dispositivo.
+  const [focus, setFocus] = useState<CategoryId[] | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    fetchRecommended().then((categories) => alive && setFocus(categories));
+    return () => {
+      alive = false;
+    };
+  }, [round]);
+
+  if (focus === undefined) {
+    return (
+      <div className="splash">
+        <TempleArt world="tikal" className="splash-temple" />
+      </div>
+    );
+  }
+  return (
+    <MissionRun
+      key={`${only ?? 'mix'}-${round}`}
+      only={only}
+      focus={focus?.length ? focus : undefined}
+      onAgain={() => setRound((r) => r + 1)}
+    />
+  );
 }
 
-function MissionRun({ only, onAgain }: { only?: CategoryId; onAgain: () => void }) {
+function MissionRun({ only, focus, onAgain }: { only?: CategoryId; focus?: CategoryId[]; onAgain: () => void }) {
   const { mastery, answers, recordSession, profile } = useProgress();
   const navigate = useNavigate();
-  const [plan] = useState(() => planMission(mastery, answers, { only }));
+  const [plan] = useState(() => planMission(mastery, answers, { only, focus }));
   const [result, setResult] = useState<{ outcome: SessionOutcome; correct: number; categories: CategoryId[] } | null>(
     null,
   );
@@ -63,7 +89,7 @@ function MissionRun({ only, onAgain }: { only?: CategoryId; onAgain: () => void 
     );
   }
 
-  const title = only ? `Práctica · ${findCategory(only)!.name}` : 'Misión del día';
+  const title = only ? `Práctica · ${findCategory(only)!.name}` : focus ? 'Misión recomendada' : 'Misión del día';
   return (
     <SessionRunner
       kind="ENTRENAMIENTO"

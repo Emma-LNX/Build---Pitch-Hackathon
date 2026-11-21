@@ -172,7 +172,8 @@ export function TeacherPage() {
         </>
       )}
       <p className="hint teacher-note">
-        Datos de este dispositivo. Cuando la app se conecte al servidor, este reporte llegará al panel de estadísticas del aula.
+        Enviadas al módulo de estadísticas: {answers.filter((a) => a.syncedAt).length} de {answers.length}. Se envían solas
+        cuando el alumno entra con su usuario y hay internet.
       </p>
     </div>
   );

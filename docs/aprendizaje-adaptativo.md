@@ -55,10 +55,12 @@ Modelo tipo Elo en `frontend/src/features/adaptive/engine.ts`:
 - Puntaje: `100 * p` con `b = 0`. Niveles: Semilla (<40), Brote (40–59), Milpa (60–74), Elote (75–89), Mazorca (≥90).
 - Se recalcula repitiendo todas las respuestas en orden de fecha, así que el servidor puede obtener el mismo resultado.
 
-## Cómo conectarlo al servidor (pendiente)
+## Conexión con el módulo de estadísticas
 
-1. **Migración `V15`**: tabla `math_portal.aprendizaje_respuestas` con los campos de arriba más `alumno_id`. Clave primaria `id` para ignorar reenvíos.
-2. **`POST /api/aprendizaje/respuestas`** (alumno autenticado): recibe un arreglo de `AnswerRecord` y guarda solo los que no existan.
-3. **`GET /api/schools/{school}/classrooms/{classroom}/students/{student}/aprendizaje`** (profesor del aula o director): nivel por categoría, aciertos, tiempo promedio y errores frecuentes. Debe devolver lo mismo que muestra `/profesor`.
-4. **Frontend**: cuando el alumno entra con usuario y contraseña (`frontend/src/lib/supabase.ts`, `getAccessToken`), enviar las respuestas sin `syncedAt` con ese token y marcarlas como enviadas. El envío actual (`frontend/src/offline/sync/syncQueue.ts`) apunta a una ruta que no existe y se puede reemplazar.
-5. **Profesor**: los temas difíciles que marca el profesor (`teacher_focus_topics`) pueden pasarse a `planMission(..., { focus })` para que la misión los priorice.
+- **Tabla** `math_portal.aprendizaje_respuestas` (migración `V15`): una fila por respuesta, con clave `id` del cliente para ignorar reenvíos.
+- **`POST /api/estadisticas/me/respuestas`** (alumno): body `{ "respuestas": AnswerRecord[] }`, hasta 500. Responde `{ recibidas, nuevas }`.
+- **`GET /api/estadisticas/me/dominio`** (alumno) y **`GET /api/estadisticas/profesor/alumnos/{alumnoId}/dominio`** (profesor asignado): nivel por categoría, aciertos, tiempo promedio, errores frecuentes y `recomendadas` (las dos categorías más débiles).
+- Código: `backend/.../modules/Estadistica/Aprendizaje*.java`, con la misma identificación de alumno y profesor que `EstadisticasService`.
+- **App**: al terminar cada sesión, y al abrirla, `frontend/src/features/adaptive/serverSync.ts` envía las respuestas pendientes si el alumno entró con usuario y hay internet. La Misión del día pide `recomendadas` al servidor y, si responde, arma la misión con ellas ("Misión recomendada"); sin servidor usa los datos del dispositivo.
+
+Pendiente: usar los temas que marca el profesor (`teacher_focus_topics`) como `focus` de `planMission`, y una pantalla de aula en el panel del profesor.

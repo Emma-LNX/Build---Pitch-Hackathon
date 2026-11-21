@@ -21,6 +21,7 @@ import type {
   Stats,
 } from '../../types';
 import { computeMastery } from '../adaptive/engine';
+import { uploadAnswers } from '../adaptive/serverSync';
 
 type MasteryMap = Partial<Record<CategoryId, CategoryMastery>>;
 
@@ -145,7 +146,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const sync = useCallback(async () => {
     const pending = await syncPendingAttempts();
-    setState((s) => ({ ...s, pending }));
+    const uploaded = await uploadAnswers();
+    const sent = new Set(uploaded?.ids);
+    setState((s) => ({
+      ...s,
+      pending,
+      answers: uploaded ? s.answers.map((a) => (sent.has(a.id) ? { ...a, syncedAt: uploaded.syncedAt } : a)) : s.answers,
+    }));
   }, []);
 
   useEffect(() => {
@@ -255,6 +262,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         mastery,
         diagnosticDoneAt: diagnosticDoneAt ?? s.diagnosticDoneAt,
       }));
+      void sync();
 
       return {
         xpEarned,
@@ -263,7 +271,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         after: mastery,
       };
     },
-    [state],
+    [state, sync],
   );
 
   const value = useMemo(
