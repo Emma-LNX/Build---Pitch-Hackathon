@@ -1,12 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { BookIcon, ChartIcon, DocIcon, GroupIcon, HomeIcon, PersonIcon } from '../../components/icons';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { StudentAccountsPanel } from '../teacher/TeacherPage';
 import { AreaNav, useStaffLogout, type Access } from './StaffApp';
 import { useStaffSession } from './StaffSession';
-import { coursesApi, teacherApi, type Classroom, type PracticeStatistics, type PracticeTopicStatistics } from './services';
+import {
+  coursesApi,
+  NAME_LIMITS,
+  teacherApi,
+  type Classroom,
+  type PracticeStatistics,
+  type PracticeTopicStatistics,
+} from './services';
 import { TopicsBrowser } from './topics';
-import { Empty, ErrorState, Loading, Updated, useRemote } from './ui';
+import { Empty, ErrorState, errorMessage, fieldErrorsOf, Loading, SuccessNote, TextField, Updated, useRemote } from './ui';
 
 export function TeacherArea({ access, schoolId }: { access: Access; schoolId: string }) {
   const base = `/profe/profesor/${schoolId}`;
@@ -82,8 +90,10 @@ function TeacherHome({
         ) : courses.error && !courses.data ? (
           <ErrorState error={courses.error} onRetry={courses.reload} />
         ) : list.length === 0 ? (
-          <Empty title="No tienes cursos asignados en este colegio.">
-            <p>Tu director te asigna a los cursos.</p>
+          <Empty title="Aún no tienes cursos en este colegio.">
+            <p>
+              <Link to={`${base}/cursos`}>Crea tu primer curso</Link> o pide a tu director que te asigne uno.
+            </p>
           </Empty>
         ) : (
           <>
@@ -155,12 +165,46 @@ function TeacherCourses({
   onCourse: (id: string | null) => void;
 }) {
   const { call } = useStaffSession();
+  const online = useOnlineStatus();
   const courses = useRemote(`courses:${schoolId}`, (signal) => coursesApi.list(call, schoolId, signal));
   const list = courses.data ?? [];
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const clearSuccess = useCallback(() => setSuccess(null), []);
+
+  async function create(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await coursesApi.create(call, schoolId, name.trim());
+      setSuccess(`Curso “${created.name}” creado. Ya puedes agregar estudiantes y temas.`);
+      setName('');
+      onCourse(created.id);
+      courses.reload();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="staff-page">
       <h1>Mis cursos</h1>
-      <p className="hint">Solo los cursos a los que tu director te asignó. Crear o eliminar cursos corresponde al director.</p>
+      <SuccessNote text={success} onDone={clearSuccess} />
+      <form className="panel staff-form" onSubmit={create} noValidate>
+        <h2>Crear curso</h2>
+        <TextField label="Nombre del curso" value={name} onChange={setName} maxLength={NAME_LIMITS.course} error={fieldErrorsOf(error).name} />
+        {Boolean(error) && <p className="form-error">{errorMessage(error, { notFound: 'No figuras como profesor de este colegio.' })}</p>}
+        <button className="btn btn-primary" disabled={busy || !name.trim() || !online}>
+          {busy ? 'Creando…' : 'Crear curso'}
+        </button>
+      </form>
+      <p className="hint">Quedas asignado a los cursos que creas. Eliminar cursos corresponde al director.</p>
       <section className="panel">
         {courses.loading && !courses.data ? (
           <Loading />

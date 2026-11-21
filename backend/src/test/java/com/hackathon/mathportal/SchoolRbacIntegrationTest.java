@@ -143,6 +143,22 @@ class SchoolRbacIntegrationTest {
     }
 
     @Test
+    void teacherCreatesCourseInOwnSchoolAndIsAssignedToIt() throws Exception {
+        mvc.perform(post("/api/schools/" + SCHOOL_A + "/courses").contextPath("/api")
+            .header("Authorization", token(TEACHER_A)).contentType("application/json").content("{\"name\":\"Geometria\"}"))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.schoolId").value(SCHOOL_A.toString()));
+        mvc.perform(get("/api/schools/" + SCHOOL_A + "/courses").contextPath("/api")
+            .header("Authorization", token(TEACHER_A)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(post("/api/schools/" + SCHOOL_B + "/courses").contextPath("/api")
+            .header("Authorization", token(TEACHER_A)).contentType("application/json").content("{\"name\":\"Ajeno\"}"))
+            .andExpect(status().isNotFound());
+        mvc.perform(post("/api/schools/" + SCHOOL_A + "/courses").contextPath("/api")
+            .header("Authorization", token(STUDENT_A)).contentType("application/json").content("{\"name\":\"Alumno\"}"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
     void assignedTeacherCreatesTopicWithServerSelectedOwner() throws Exception {
         mvc.perform(post(path(SCHOOL_A, COURSE_A)).contextPath("/api")
             .header("Authorization", token(TEACHER_A)).contentType("application/json").content(topic()))

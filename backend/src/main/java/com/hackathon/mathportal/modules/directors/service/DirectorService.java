@@ -74,10 +74,16 @@ public class DirectorService {
         if (jdbc.update("DELETE FROM math_portal.school_memberships WHERE school_id = ? AND user_id = ?", school, user) == 0) throw notFound();
     }
 
+    /** El director crea cursos para su colegio; un profesor del colegio también, y queda asignado al curso. */
     public CourseView createCourse(UUID actor, UUID school, NameRequest request) {
-        requireOwner(actor, school);
+        boolean director = access.isDirector(actor, school);
+        if (director) requireOwner(actor, school);
+        else requireTeacher(actor, school);
         UUID course = UUID.randomUUID();
         jdbc.update("INSERT INTO math_portal.courses (id, school_id, name) VALUES (?, ?, ?)", course, school, request.name().strip());
+        if (!director) {
+            jdbc.update("INSERT INTO math_portal.course_memberships (school_id, course_id, user_id, role) VALUES (?, ?, ?, 'PROFESOR')", school, course, actor);
+        }
         return new CourseView(course, school, request.name().strip());
     }
 
@@ -124,6 +130,11 @@ public class DirectorService {
     }
 
     private void requireOwner(UUID actor, UUID school) { access.requireDirector(actor, school); }
+
+    private void requireTeacher(UUID actor, UUID school) {
+        verifiedEmail(actor);
+        if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM math_portal.school_memberships WHERE school_id = ? AND user_id = ? AND role = 'PROFESOR')", Boolean.class, school, actor))) throw notFound();
+    }
 
     private void requireCourse(UUID school, UUID course) {
         if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM math_portal.courses WHERE school_id = ? AND id = ?)", Boolean.class, school, course))) throw notFound();
