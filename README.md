@@ -1,6 +1,6 @@
 # Portal de repaso de matemáticas
 
-Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura y configuración base; los módulos de negocio están pendientes.
+Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura base y RBAC en la API con separación por colegio y curso. Ver [roles, endpoints y configuración](docs/rbac.md). Incluye la API de registro y administración de directores; ver [contrato de integración](docs/directors.md). El frontend lo desarrolla otro integrante del equipo. La experiencia de práctica offline está pendiente.
 
 ```text
 .
@@ -28,7 +28,7 @@ Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura y configura
 │       │   ├── java/com/hackathon/mathportal/
 │       │   │   ├── config/
 │       │   │   ├── common/exception/
-│       │   │   └── modules/{auth,topics,exercises,progress}/
+│       │   │   └── modules/{auth,directors,schools,courses,topics,exercises,progress}/
 │       │   └── resources/db/migration/
 │       └── test/java/com/hackathon/mathportal/
 ├── docs/                       # Arquitectura y decisiones offline
@@ -42,14 +42,14 @@ Cada módulo del backend reserva `controller`, `service`, `repository`, `entity`
 
 - Frontend: React, React DOM, React Router, `idb` (IndexedDB).
 - Herramientas frontend: TypeScript, Vite, plugin React, `vite-plugin-pwa` (Workbox).
-- Backend: Spring Web, Data JPA, Validation, Actuator, driver PostgreSQL, Flyway y soporte Flyway PostgreSQL. Spring Boot administra sus versiones.
+- Backend: Spring Web, Security / OAuth2 Resource Server, Data JPA / JDBC, Validation, Actuator, driver PostgreSQL, Flyway y soporte Flyway PostgreSQL. H2 se usa solo en pruebas. Spring Boot administra sus versiones.
 - Desarrollo: Node.js 22.12+ con pnpm 11.25.0 (instalar con `npm install -g pnpm@11.25.0`), JDK 21, Maven 3.6.3+ o Docker con Compose v2.
 
-Se usa Spring Boot 3.5.16 con Java 21. Supabase se conecta desde Java mediante JDBC; no hace falta un SDK de Supabase para acceder a PostgreSQL. La autenticación todavía no está implementada.
+Se usa Spring Boot 3.5.16 con Java 21. Supabase se conecta desde Java mediante JDBC; no hace falta un SDK de Supabase para acceder a PostgreSQL. La API valida access tokens de Supabase Auth con claves asimétricas. Supabase Auth gestiona el registro por correo; la API activa el perfil de director solo después de confirmarlo.
 
 ## Inicio con Docker
 
-1. Copiar `.env.example` a `.env` y completar las credenciales PostgreSQL de Supabase.
+1. Copiar `.env.example` a `.env` y completar las credenciales PostgreSQL y `SUPABASE_AUTH_ISSUER`; configurar la confirmación de correo y Redirect URLs según [Directores](docs/directors.md).
 2. Ejecutar `docker compose up --build`.
 3. Abrir http://localhost:8080. Salud de la API: http://localhost:8080/api/actuator/health.
 
@@ -65,7 +65,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Backend, con `SUPABASE_DB_URL`, `SUPABASE_DB_USERNAME` y `SUPABASE_DB_PASSWORD` exportadas en la terminal:
+Backend, con `SUPABASE_DB_URL`, `SUPABASE_DB_USERNAME`, `SUPABASE_DB_PASSWORD` y `SUPABASE_AUTH_ISSUER` exportadas en la terminal:
 
 ```sh
 cd backend
