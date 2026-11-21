@@ -50,6 +50,10 @@ public class TeacherService {
             teachers.studentTopics(school, classroom, student).stream().map(this::summarize).toList());
     }
 
+    public void requireAssignedStudent(UUID actor, UUID school, UUID classroom, UUID student) {
+        ownStudent(actor, school, classroom, student);
+    }
+
     @Transactional
     public StudentProgress selectDifficult(UUID actor, UUID school, UUID classroom, UUID student, UUID topic) {
         ownRoom(actor, school, classroom);

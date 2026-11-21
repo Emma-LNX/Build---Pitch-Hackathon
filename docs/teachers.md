@@ -50,6 +50,8 @@ Ejemplo de progreso:
 
 El servicio comprueba el colegio, el aula, su profesor asignado y la matrícula del alumno para cada operación. Responde `404` para recursos ajenos o inexistentes y `401` sin token. El director mantiene su endpoint administrativo de conteos en `/schools/{school}/statistics`.
 
+El profesor también puede registrar [contactos de padres o tutores y enviar reportes por correo](parents.md) para los estudiantes de sus aulas.
+
 ## Persistencia y verificación
 
 V1/V2 incorporan las tablas y el ejemplo de práctica del módulo de alumnos de `main`; V7 contiene las estadísticas de Chou. V10 bloquea acceso directo a las tablas de alumnos; V11 guarda los temas difíciles con claves compuestas de escuela, aula y alumno; V12 bloquea acceso directo a esa selección. Flyway aplicará las migraciones al arrancar en Supabase. No se lee ni se modifica `.env`.
