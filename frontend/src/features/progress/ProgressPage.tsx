@@ -78,6 +78,12 @@ export function ProgressPage() {
         )}
       </section>
 
+      {answers.length > 0 && (
+        <Link to="/profesor" className="btn btn-secondary btn-block">
+          Vista del profesor
+        </Link>
+      )}
+
       <section className="panel panel-quiet">
         <h2>Mundos</h2>
         <ul className="world-list">

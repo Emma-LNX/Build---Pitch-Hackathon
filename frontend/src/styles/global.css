@@ -1051,3 +1051,37 @@ img, svg { display: block; }
   font-size: 1.25rem;
 }
 .order-card:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--tinta); }
+
+/* ---------------- Vista del profesor ---------------- */
+.teacher-page { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 640px; margin: 0 auto; padding: 16px 16px 32px; }
+.teacher-page .lesson-header { padding: 0; }
+.teacher-title { margin: 0; font-size: 1.5rem; }
+.teacher-title + .hint { margin: 0; }
+.teacher-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.teacher-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  background: #fff;
+  border: var(--line) solid var(--tinta);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--tinta);
+}
+.teacher-stat strong { font-size: 1.6rem; line-height: 1.2; }
+.teacher-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.teacher-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.teacher-cats li { display: flex; flex-direction: column; gap: 4px; }
+.teacher-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.teacher-recent li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 2px solid #e3ecf0;
+  border-radius: 12px;
+}
+.teacher-ok { color: var(--cesped-borde); font-weight: 800; }
+.teacher-bad { color: var(--error); font-weight: 800; }
+.teacher-error { display: block; color: var(--error); }
+.teacher-note { text-align: center; }

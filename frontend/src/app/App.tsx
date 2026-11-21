@@ -3,6 +3,7 @@ import { AppLayout } from '../components/AppLayout';
 import { TempleArt } from '../components/TempleArt';
 import { DiagnosticPage } from '../features/adaptive/DiagnosticPage';
 import { MissionPage } from '../features/adaptive/MissionPage';
+import { TeacherPage } from '../features/adaptive/TeacherPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { WelcomePage } from '../features/auth/WelcomePage';
 import { LessonPage } from '../features/exercises/LessonPage';
@@ -51,6 +52,7 @@ function AppRoutes() {
       <Route path="leccion/:lessonId" element={<LessonPage />} />
       <Route path="diagnostico" element={<DiagnosticPage />} />
       <Route path="mision" element={<MissionPage />} />
+      <Route path="profesor" element={<TeacherPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
