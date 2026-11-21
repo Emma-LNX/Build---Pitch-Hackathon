@@ -1,6 +1,6 @@
 # Portal de repaso de matemáticas
 
-Monorepo inicial para Build & Pitch Hackathon. Incluye la estructura y configuración base; los módulos de negocio están pendientes.
+Monorepo para Build & Pitch Hackathon. Incluye frontend base y backend de alumnos con perfiles, partidas, puntos, niveles, progreso, rachas y ranking. Ver [contexto de alumnos](docs/contexto-alumnos.md) y [guía del backend y endpoints](backend/README.md).
 
 ```text
 .
@@ -45,7 +45,7 @@ Cada módulo del backend reserva `controller`, `service`, `repository`, `entity`
 - Backend: Spring Web, Data JPA, Validation, Actuator, driver PostgreSQL, Flyway y soporte Flyway PostgreSQL. Spring Boot administra sus versiones.
 - Desarrollo: Node.js 22.12+ con pnpm 11.25.0 (instalar con `npm install -g pnpm@11.25.0`), JDK 21, Maven 3.6.3+ o Docker con Compose v2.
 
-Se usa Spring Boot 3.5.16 con Java 21. Supabase se conecta desde Java mediante JDBC; no hace falta un SDK de Supabase para acceder a PostgreSQL. La autenticación todavía no está implementada.
+Se usa Spring Boot 3.5.16 con Java 21. Supabase se conecta desde Java mediante JDBC; no hace falta un SDK de Supabase para acceder a PostgreSQL. El backend valida tokens de Supabase Auth; configurar `SUPABASE_URL` y una clave de firma asimétrica según la [guía del backend](backend/README.md).
 
 ## Inicio con Docker
 
@@ -83,3 +83,4 @@ La configuración inicial genera el manifest y el service worker, y precachea la
 La descarga de lecciones, el almacenamiento de ejercicios y la sincronización del progreso aún deben implementarse en `src/offline/`. No se cachean respuestas de la API ni datos privados automáticamente. Faltan iconos PNG de 192×192 y 512×512 para completar los requisitos de instalación en los navegadores objetivo; ver `frontend/public/icons/README.md`.
 
 Fuentes: [Spring Boot / Java](https://docs.spring.io/spring-boot/3.5/system-requirements.html), [Vite PWA](https://vite-pwa-org.netlify.app/guide/), [Supabase con Spring Boot](https://supabase.com/docs/guides/getting-started/quickstarts/spring-boot).
+J
